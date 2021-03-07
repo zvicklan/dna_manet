@@ -18,6 +18,9 @@ numPlat3s = 2;
 vel1 = 5;
 vel2 = 3;
 vel3 = 0;
+totalPlats = numPlat1s + numPlat2s + numPlat3s;
+
+%Link setup (3 types (1-1,2; 2-2,3; 3-3)
 stopPerc1 = .1;
 stopPerc2 = .5;
 stopPerc3 = 1;
@@ -27,6 +30,9 @@ linkRadius3 = inf;
 linkFail1 = 0.6;
 linkFail2 = 0.9;
 linkFail3 = 1;
+
+%Associativity Based Routing stuff
+abrTickTable = zeros(totalPlats);
 
 %create starting spots
 plat1s = startSize * (rand(numPlat1s, 2) - .5);
@@ -58,6 +64,9 @@ for ii = 0:10
     linkMatrix3 = zeroRandomFields(linkMatrix3, 1-linkFail3);
     
     combinedLinkMatrix = combineLinks(linkMatrix1, 2*linkMatrix2, 3*linkMatrix3);
+    
+    %everyone pings
+    abrTickTable = abrTickTable + double(combinedLinkMatrix > 0);
     
     %Visualize
     cla
