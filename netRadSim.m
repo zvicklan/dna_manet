@@ -18,7 +18,13 @@ numPlat3s = 2;
 vel1 = 5;
 vel2 = 3;
 vel3 = 0;
+maxBW1 = 50e3;
+maxBW2 = 200e3;
+maxBW3 = 500e3;
 totalPlats = numPlat1s + numPlat2s + numPlat3s;
+maxBWVec = [maxBW1 * ones(numPlat1s, 1); 
+    maxBW2 * ones(numPlat2s, 1); ...
+    maxBW3 * ones(numPlat3s, 1)];
 
 %Link setup (3 types (1-1,2; 2-2,3; 3-3)
 stopPerc1 = .1;
