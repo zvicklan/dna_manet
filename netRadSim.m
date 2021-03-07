@@ -24,6 +24,9 @@ stopPerc3 = 1;
 linkRadius1 = 10;
 linkRadius2 = 20;
 linkRadius3 = inf;
+linkFail1 = 0.6;
+linkFail2 = 0.9;
+linkFail3 = 1;
 
 %create starting spots
 plat1s = startSize * (rand(numPlat1s, 2) - .5);
@@ -40,25 +43,32 @@ vel3s = genRandVelsStop(numPlat3s, stopPerc3, 0, vel3);
 %plot everybody
 figure
 for ii = 0:10
-    cla
-    hold all
-    nodePosEN = [plat1s; plat2s];
-    linkMatrix = getPossibleLinks(nodePosEN, linkRadius1);
+    nodePosEN = [plat1s; plat2s; plat3s];
+    linkMatrix1 = getPossibleLinks(nodePosEN, linkRadius1);
     
     %Then do the same for plat 2s to plat 3s. Note that we'll just
     %overwrite the link types
     nodePosEN2 = [plat2s; plat3s];
     linkMatrix2 = getPossibleLinks(nodePosEN2, linkRadius2);
-    
     linkMatrix3 = 1 - eye(numPlat3s); %only 0 on diagonal
     
+    %Induce failures
+    linkMatrix1 = zeroRandomFields(linkMatrix1, 1-linkFail1);
+    linkMatrix2 = zeroRandomFields(linkMatrix2, 1-linkFail2);
+    linkMatrix3 = zeroRandomFields(linkMatrix3, 1-linkFail3);
+    
+    combinedLinkMatrix = combineLinks(linkMatrix1, 2*linkMatrix2, 3*linkMatrix3);
+    
+    %Visualize
+    cla
+    hold all
     legNet  = plot(plat1s(:,1), plat1s(:,2), 'ob');
     legComm = plot(plat2s(:,1), plat2s(:,2), 'og', 'markerfacecolor', 'g');
     legGS   = plot(plat3s(:,1), plat3s(:,2), 'ok', 'markerfacecolor', 'k');
     legUAV   = plot(threats(:,1), threats(:,2), 'or', 'markerfacecolor', 'r');
-    legLinks3 = plotLinks(linkMatrix3, plat3s);
-    legLinks = plotLinks(linkMatrix, nodePosEN, 'b');
-    legLinks2 = plotLinks(linkMatrix2, nodePosEN2, 'g');
+    legLinks3 = plotLinks(combinedLinkMatrix == 3, nodePosEN);
+    legLinks = plotLinks(combinedLinkMatrix == 1, nodePosEN, 'b');
+    legLinks2 = plotLinks(combinedLinkMatrix == 2, nodePosEN, 'g');
     
     xlabel('E')
     ylabel('N')
@@ -68,6 +78,8 @@ for ii = 0:10
     legend([legNet, legComm, legGS, legUAV, legLinks3, legLinks2, legLinks], {'Net Drones', ...
         'Comm Drones', 'Ground Stations', 'Enemy UAVs', 'Gnd Links', 'G2S Links', 'Swarm Links'});
     pause(1)
+    
+    
     
     %And update
     plat1s = plat1s + vel1s;

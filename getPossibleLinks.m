@@ -8,8 +8,7 @@ function linkMatrix = getPossibleLinks(nodePosEN, radius)
 % 
 % Outputs:
 %   linkMatrix  - nxn symmetric matrix of potential links indicating nodes
-%       within radius of each other. The diagonal indicates number of
-%       potential links to that node
+%       within radius of each other. 
 % 
 % Test:
 % enVector = [0, 0; 4, 0; 4, 4; 0, 4];
@@ -21,19 +20,11 @@ function linkMatrix = getPossibleLinks(nodePosEN, radius)
 
 numNodes = size(nodePosEN, 1);
 
-distMatrix = zeros(numNodes, numNodes); %intermediate values
+distMatrix = getDistMatrix(nodePosEN); %intermediate values
 linkMatrix = zeros(numNodes, numNodes);
 connectCount = zeros(numNodes, 1);
-for ii = 1:numNodes
-    thisEN = nodePosEN(ii,:);
-    deltas = nodePosEN - thisEN;
-    dists = diag(sqrt(deltas * deltas.'));
-    distMatrix(ii,:) = dists;
-end
 
 %then do a logic check to make linkMatrix
 linkMatrix = double(distMatrix <= radius);
 
-%Then insert the counts into the diagonal
-connectCount = sum(linkMatrix, 2) - 1;
-linkMatrix(1:numNodes+1:numNodes^2) = connectCount; %nifty way to insert
+linkMatrix = linkMatrix - eye(numNodes); %0 diagonal
