@@ -1,4 +1,4 @@
-function [goodPaths, totalTx, totalRx] = getGoodPaths(src, dest, linkMatrix)
+function [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(src, dest, linkMatrix)
 % Finds all links from src to dest without duplicates
 % 
 % Input
@@ -8,23 +8,33 @@ function [goodPaths, totalTx, totalRx] = getGoodPaths(src, dest, linkMatrix)
 %   linkMatrix - nxn link matrix (non-zero is link). n must be > src & dest
 % 
 % Output
-%   totalTx - nx1 vector indicating how much each node transmits
-%   totalRx - nx1 vector indicating how much each node receives
+%   goodPaths - mx1 cell array of m possible paths
+%   totalTx  - nx1 vector indicating how much each node transmits
+%   totalRx  - nx1 vector indicating how much each node receives
+%   bwMatrix - nxn matrix indicating bw used over each link (non-symmetric)
 % 
 % Test
 % % simple 1 path
 % linkMatrix = [0 1 0; 1 0 1; 0 1 0]; 
-% [goodPaths, totalTx, totalRx] = getGoodPaths(3, 1, linkMatrix)
+% [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(3, 1, linkMatrix)
 % % simple 2 path
 % linkMatrix = [0 1 1; 1 0 1; 1 1 0]; 
-% [goodPaths, totalTx, totalRx] = getGoodPaths(3, 1, linkMatrix)
+% [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(3, 1, linkMatrix)
 % % complex 2 path
 % linkMatrix = [0 1 1 0 0;
 %     1 0 0 1 0; 
 %     1 0 0 0 1;
 %     0 1 0 0 1;
 %     0 0 1 1 0]; 
-% [goodPaths, totalTx, totalRx] = getGoodPaths(1, 5, linkMatrix)
+% [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(1, 5, linkMatrix)
+% % No path
+% linkMatrix = [0 1 1 0 0;
+%     1 0 0 1 0; 
+%     1 0 0 0 0;
+%     0 1 0 0 0;
+%     0 0 0 0 0]; 
+% [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(1, 5, linkMatrix)
+
 % 
 % History
 % Created 3/27/2021 ZV - helper for routeDiscoveryPhase
@@ -32,6 +42,7 @@ function [goodPaths, totalTx, totalRx] = getGoodPaths(src, dest, linkMatrix)
 numNodes = size(linkMatrix, 1);
 totalTx = zeros(numNodes, 1);
 totalRx = zeros(numNodes, 1);
+bwMatrix = zeros(numNodes, numNodes);
 
 msgSize = 500;
 
@@ -61,7 +72,8 @@ while numel(paths) > 0
         %retransmit
         neighbors = find(linkMatrix(thisNode,:));
         totalTx(thisNode) = totalTx(thisNode) + msgSize;
-        totalRx(neighbors) = totalRx(neighbors) + 500;
+        totalRx(neighbors) = totalRx(neighbors) + msgSize;
+        bwMatrix(thisNode, neighbors) = bwMatrix(thisNode, neighbors) + msgSize;
         for ii = 1:numel(neighbors)
             paths{numel(paths) + 1} = [myPath, neighbors(ii)];
         end
