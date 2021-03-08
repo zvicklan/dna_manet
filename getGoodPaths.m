@@ -1,4 +1,5 @@
-function [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(src, dest, linkMatrix)
+function [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(src, dest, ...
+    linkMatrix, msgSize)
 % Finds all links from src to dest without duplicates
 % 
 % Input
@@ -34,17 +35,30 @@ function [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(src, dest, linkM
 %     0 1 0 0 0;
 %     0 0 0 0 0]; 
 % [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(1, 5, linkMatrix)
-
+% % two options then through same point (should only return 1)
+% linkMatrix = [0 1 1 0 0;
+%     1 0 0 1 0; 
+%     1 0 0 1 0;
+%     0 1 1 0 1;
+%     0 0 0 1 0]; 
+% [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(1, 5, linkMatrix)
 % 
 % History
-% Created 3/27/2021 ZV - helper for routeDiscoveryPhase
+% Created 3/7/2021 ZV - helper for routeDiscoveryPhase
+% 3/8/2021 - Modified so that each node will only send each msg once
+
+if ~exist('msgSize', 'var')
+    msgSize = 500;
+end
 
 numNodes = size(linkMatrix, 1);
 totalTx = zeros(numNodes, 1);
 totalRx = zeros(numNodes, 1);
 bwMatrix = zeros(numNodes, numNodes);
 
-msgSize = 500;
+%Adding vector to track if each node has transmitted. If it has, it doesn't
+%do it again
+hasTXed = zeros(numNodes, 1);
 
 %I think we want to do a breadth-first search. Except it'll keep going
 %until we've gotten from src to dest every possible way. Then we'll store
@@ -65,8 +79,8 @@ while numel(paths) > 0
     if ~isempty(find(myPath == dest, 1)) 
         %Made it to destination!
         goodPaths{numel(goodPaths) + 1} = myPath;
-    elseif numel(myPath) > numel(unique(myPath))
-        %Loop has a duplicate
+    elseif numel(myPath) > numel(unique(myPath)) || hasTXed(thisNode)
+        %Loop has a duplicate OR has already transmitted
         %nop
     else
         %retransmit
@@ -74,6 +88,7 @@ while numel(paths) > 0
         totalTx(thisNode) = totalTx(thisNode) + msgSize;
         totalRx(neighbors) = totalRx(neighbors) + msgSize;
         bwMatrix(thisNode, neighbors) = bwMatrix(thisNode, neighbors) + msgSize;
+        hasTXed(thisNode) = 1; %mark to not tx again
         for ii = 1:numel(neighbors)
             paths{numel(paths) + 1} = [myPath, neighbors(ii)];
         end

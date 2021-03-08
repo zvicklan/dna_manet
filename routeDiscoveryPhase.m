@@ -1,4 +1,5 @@
-function [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryPhase(src, dest, linkMatrix, remainingBW)
+function [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryPhase(src, dest, ...
+    linkMatrix, remainingBW, msgSize)
 % Performs a route discover from src to dest over links in linkMatrix
 % Anything non-zero is interpreted as a link
 % 
@@ -25,13 +26,18 @@ function [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryPhase(src, dest,
 % [path, totalTx, totalRx, bwMatrix] = routeDiscoveryPhase(1, 5, linkMatrix, remainingBW)
 % 
 % History
-% Created 3/27/2021 ZV
+% Created 3/7/2021 ZV
+% Modified 3/8/2021 ZV to do route selection and allow msgSize input
+
+if ~exist('msgSize', 'var')
+    msgSize = 500;
+end
 
 %Initialize output
 bestPath = [];
 
 %% Get potential paths
-[goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(src, dest, linkMatrix);
+[goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(src, dest, linkMatrix, msgSize);
 if isempty(goodPaths) %no paths found
     return;
 end

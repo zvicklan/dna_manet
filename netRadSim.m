@@ -7,6 +7,9 @@
 rng('default');
 close all;
 
+%Sim setup
+simTime = 10; %seconds?
+
 %Plot characteristics
 boxSize = 100;
 startSize = 50;
@@ -15,30 +18,16 @@ startSize = 50;
 numPlat1s = 50;
 numPlat2s = 5;
 numPlat3s = 2;
+numPlats = numPlat1s + numPlat2s + numPlat3s;
 vel1 = 5;
 vel2 = 3;
 vel3 = 0;
 maxBW1 = 50e3;
 maxBW2 = 200e3;
 maxBW3 = 500e3;
-totalPlats = numPlat1s + numPlat2s + numPlat3s;
 maxBWVec = [maxBW1 * ones(numPlat1s, 1); 
     maxBW2 * ones(numPlat2s, 1); ...
-    maxBW3 * ones(numPlat3s, 1)];
-
-%Link setup (3 types (1-1,2; 2-2,3; 3-3)
-stopPerc1 = .1;
-stopPerc2 = .5;
-stopPerc3 = 1;
-linkRadius1 = 10;
-linkRadius2 = 20;
-linkRadius3 = inf;
-linkFail1 = 0.6;
-linkFail2 = 0.9;
-linkFail3 = 1;
-
-%Associativity Based Routing stuff
-abrTickTable = zeros(totalPlats);
+    maxBW3 * ones(numPlat3s, 1)]; %total bytes?
 
 %create starting spots
 plat1s = startSize * (rand(numPlat1s, 2) - .5);
@@ -52,11 +41,47 @@ vel1s = genRandVelsStop(numPlat1s, stopPerc1, 0, vel1);
 vel2s = genRandVelsStop(numPlat2s, stopPerc2, 0, vel2);
 vel3s = genRandVelsStop(numPlat3s, stopPerc3, 0, vel3);
 
+%Link setup (3 types (1-1,2; 2-2,3; 3-3)
+stopPerc1 = .1;
+stopPerc2 = .5;
+stopPerc3 = 1;
+linkRadius1 = 10;
+linkRadius2 = 20;
+linkRadius3 = inf;
+linkFail1 = 0.6;
+linkFail2 = 0.9;
+linkFail3 = 1;
+
+%Set up the messages to send (same for all routing strategies)
+msgsPerSec = 100; 
+totalMsgs = (simTime + 1) * msgsPerSec; %because counting 0 and max
+allMsgs = getSrcDestPairs(numPlats, totalMsgs);
+msgSuccess = zeros(totalMsgs, 1);
+loadMemLength = 10;
+validMemDataPts = 0;
+loadHistory = zeros(numPlats, loadMemLength);
+
+%Associativity Based Routing stuff
+abrTickTable = zeros(numPlats);
+tickSize = 50;
+msgSize = 500;
+
 %plot everybody
 figure
-for ii = 0:10
+for ii = 0:simTime
+    %Get state information for this time stamp
     nodePosEN = [plat1s; plat2s; plat3s];
     linkMatrix1 = getPossibleLinks(nodePosEN, linkRadius1);
+    
+    %Get msgs for this time stamp
+    numMsgs = msgsPerSec;
+    nowMsgs = allMsgs(ii+1 : (ii+1)*msgsPerSec, :);
+    if validMemDataPts == 0 %no load history
+        remainingBW = maxBWVec;
+    else
+        remainingBW = maxBWVec - mean(loadHistory(:, 1:validMemDataPts));
+    end
+    linkUsageMatrix = zeros(numPlats, numPlats);
     
     %Then do the same for plat 2s to plat 3s. Note that we'll just
     %overwrite the link types
@@ -72,8 +97,24 @@ for ii = 0:10
     combinedLinkMatrix = combineLinks(linkMatrix1, 2*linkMatrix2, 3*linkMatrix3);
     
     %everyone pings
-    abrTickTable = abrTickTable + double(combinedLinkMatrix > 0);
+    theseTicks = double(combinedLinkMatrix > 0);
+    abrTickTable = abrTickTable + theseTicks;
     
+    %Send all msgs for this timestamp
+    for mm = 1:numMsgs
+        thisMsg = nowMsgs(mm,:);
+        src = thisMsg(1);
+        dest = thisMsg(2);
+        [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryPhase(src, dest, ...
+            combinedLinkMatrix, remainingBW, msgSize);
+        msgSuccess = ~isempty(bestPath);
+        %Update each node's BW usage and BW over each link
+        loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
+        linkUsageMatrix = linkUsageMatrix + bwMatrix;
+    end
+    
+    %Add ticks as well
+    linkUsageMatrix = linkUsageMatrix + tickSize*theseTicks;
     %Visualize
     cla
     hold all
@@ -105,5 +146,9 @@ for ii = 0:10
     vel1s = genRandVelsStop(numPlat1s, stopPerc1, 0, vel1);
     vel2s = genRandVelsStop(numPlat2s, stopPerc2, 0, vel2);
     vel3s = genRandVelsStop(numPlat3s, stopPerc3, 0, vel3);
+    
+    %Update radio usage - shift right, increment total counter
+    loadHistory = [zeros(numPlats, 1), loadHistory(:, 1:loadMemLength - 1)];
+    validMemDataPts = min(validMemDataPts + 1, loadMemLength);
 end
     
