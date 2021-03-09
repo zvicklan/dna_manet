@@ -48,7 +48,7 @@ function [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(src, dest, ...
 % 3/8/2021 - Modified so that each node will only send each msg once
 
 if ~exist('msgSize', 'var')
-    msgSize = 500;
+    msgSize = 1;
 end
 
 numNodes = size(linkMatrix, 1);

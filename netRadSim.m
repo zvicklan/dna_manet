@@ -6,28 +6,35 @@
 % Make the sim consistent
 rng('default');
 close all;
+clear;
+clc
 
 %Sim setup
 simTime = 10; %seconds?
+debugMode = 1;
 
 %Plot characteristics
 boxSize = 100;
 startSize = 50;
 
 %Node setup
-numPlat1s = 50;
+numPlat1s = 50;     %numbers
 numPlat2s = 5;
 numPlat3s = 2;
 numPlats = numPlat1s + numPlat2s + numPlat3s;
-vel1 = 5;
+vel1 = 5;           %Speeds
 vel2 = 3;
-vel3 = 0;
-maxBW1 = 50e3;
+vel3 = 0;   
+maxBW1 = 50e3;      %Bandwidths
 maxBW2 = 200e3;
 maxBW3 = 500e3;
 maxBWVec = [maxBW1 * ones(numPlat1s, 1); 
     maxBW2 * ones(numPlat2s, 1); ...
     maxBW3 * ones(numPlat3s, 1)]; %total bytes?
+stopPerc1 = .1;     %Prob of not moving
+stopPerc2 = .5;
+stopPerc3 = 1;
+pathMemArr = cell(numPlats, numPlats); %memory for all nodes path to all
 
 %create starting spots
 plat1s = startSize * (rand(numPlat1s, 2) - .5);
@@ -42,9 +49,6 @@ vel2s = genRandVelsStop(numPlat2s, stopPerc2, 0, vel2);
 vel3s = genRandVelsStop(numPlat3s, stopPerc3, 0, vel3);
 
 %Link setup (3 types (1-1,2; 2-2,3; 3-3)
-stopPerc1 = .1;
-stopPerc2 = .5;
-stopPerc3 = 1;
 linkRadius1 = 10;
 linkRadius2 = 20;
 linkRadius3 = inf;
@@ -67,7 +71,8 @@ tickSize = 50;
 msgSize = 500;
 
 %plot everybody
-figure
+simFig = 1;
+debugFig = 2;
 for ii = 0:simTime
     %Get state information for this time stamp
     nodePosEN = [plat1s; plat2s; plat3s];
@@ -75,7 +80,7 @@ for ii = 0:simTime
     
     %Get msgs for this time stamp
     numMsgs = msgsPerSec;
-    nowMsgs = allMsgs(ii+1 : (ii+1)*msgsPerSec, :);
+    nowMsgs = allMsgs(ii*msgsPerSec + 1 : (ii+1)*msgsPerSec, :);
     if validMemDataPts == 0 %no load history
         remainingBW = maxBWVec;
     else
@@ -94,10 +99,10 @@ for ii = 0:simTime
     linkMatrix2 = zeroRandomFields(linkMatrix2, 1-linkFail2);
     linkMatrix3 = zeroRandomFields(linkMatrix3, 1-linkFail3);
     
-    combinedLinkMatrix = combineLinks(linkMatrix1, 2*linkMatrix2, 3*linkMatrix3);
+    allLinks = combineLinks(linkMatrix1, 2*linkMatrix2, 3*linkMatrix3);
     
     %everyone pings
-    theseTicks = double(combinedLinkMatrix > 0);
+    theseTicks = double(allLinks > 0);
     abrTickTable = abrTickTable + theseTicks;
     
     %Send all msgs for this timestamp
@@ -105,26 +110,88 @@ for ii = 0:simTime
         thisMsg = nowMsgs(mm,:);
         src = thisMsg(1);
         dest = thisMsg(2);
-        [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryPhase(src, dest, ...
-            combinedLinkMatrix, remainingBW, msgSize);
-        msgSuccess = ~isempty(bestPath);
-        %Update each node's BW usage and BW over each link
-        loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
-        linkUsageMatrix = linkUsageMatrix + bwMatrix;
+        msgInd = ii*msgsPerSec + mm;
+        %First, we need to check if we have this path
+        memPath = pathMemArr{src, dest};
+        
+        %If so, attempt to use path
+        if ~isempty(memPath)
+            [success, usedPath, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
+                allLinks, memPath);
+            %check that it got there
+            msgSuccess(msgInd) = success;
+            
+            if ~success
+                %Report broken path
+                pathMemArr = removePath(pathMemArr, oldPath, existingPath); %TODO - do I want to restart?
+                msgSuccess(msgInd) = 0; %reinitialize to 0 each time'
+            end
+        end
+        
+        if ~msgSuccess(msgInd)
+            %If we need a new route, we find it
+            [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryPhase(src, dest, ...
+                allLinks, remainingBW, msgSize);
+            msgSuccess(msgInd) = ~isempty(bestPath);
+            
+            if debugMode
+                %super cool plotting
+                figure(debugFig)
+                cla
+                hold all;
+                xlabel('E')
+                ylabel('N')
+                title(sprintf('t = %d, - m = %d, success = %d', ...
+                    ii, msgInd, msgSuccess(msgInd)))
+                if exist('hLeg', 'var')
+                    set(hLeg, 'Visible', 'Off');
+                end
+                %Plotting SRC and DEST twice so visible for debugging
+                legAllLinks = plotLinks(allLinks, nodePosEN, 'k', 5);
+                plotSrcDest(src, dest, nodePosEN);
+                legUsedLinks = plotLinks(bwMatrix, nodePosEN, 'y', 3);
+                plotSrcDest(src, dest, nodePosEN);
+                legNet  = plot(plat1s(:,1), plat1s(:,2), 'ob');
+                legComm = plot(plat2s(:,1), plat2s(:,2), 'ob', 'markerfacecolor', 'b');
+                legGS   = plot(plat3s(:,1), plat3s(:,2), 'ok', 'markerfacecolor', 'k');
+                if ~isempty(bestPath)
+                    legPath = plotPath(bestPath, allLinks, nodePosEN, 'g');
+                else
+                    legPath = plot(nodePosEN(1) * ones(2,1), nodePosEN(2) * ones(2,1), 'g');
+                end
+                [legSrc, legDest] = plotSrcDest(src, dest, nodePosEN);
+                hLeg = legend([legSrc, legDest, legNet, legComm, legGS, legAllLinks, ...
+                    legUsedLinks, legPath], ...
+                    {'Src', 'Dest', 'Net Drones', 'Comm Drones', ...
+                    'Ground Stations', 'All Links', 'Used Links', 'Best Path'});
+                xlim(startSize * [-1, 1])
+                ylim(startSize * [-1, 1])
+            end
+                
+            %Update each node's BW usage and BW over each link
+            loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
+            linkUsageMatrix = linkUsageMatrix + bwMatrix;
+            
+            %And save it so all nodes have memory
+            if msgSuccess(msgInd)
+                pathMemArr = saveNewPath(pathMemArr, bestPath);
+            end
+        end
     end
     
     %Add ticks as well
     linkUsageMatrix = linkUsageMatrix + tickSize*theseTicks;
     %Visualize
+    figure(simFig)
     cla
     hold all
     legNet  = plot(plat1s(:,1), plat1s(:,2), 'ob');
     legComm = plot(plat2s(:,1), plat2s(:,2), 'og', 'markerfacecolor', 'g');
     legGS   = plot(plat3s(:,1), plat3s(:,2), 'ok', 'markerfacecolor', 'k');
     legUAV   = plot(threats(:,1), threats(:,2), 'or', 'markerfacecolor', 'r');
-    legLinks3 = plotLinks(combinedLinkMatrix == 3, nodePosEN);
-    legLinks = plotLinks(combinedLinkMatrix == 1, nodePosEN, 'b');
-    legLinks2 = plotLinks(combinedLinkMatrix == 2, nodePosEN, 'g');
+    legLinks3 = plotLinks(allLinks == 3, nodePosEN);
+    legLinks = plotLinks(allLinks == 1, nodePosEN, 'b');
+    legLinks2 = plotLinks(allLinks == 2, nodePosEN, 'g');
     
     xlabel('E')
     ylabel('N')

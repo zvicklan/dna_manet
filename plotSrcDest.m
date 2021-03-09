@@ -1,0 +1,6 @@
+function [legSrc, legDest] = plotSrcDest(src, dest, nodePosEN)
+% Simple wrapper to clean up code
+legSrc = plot(nodePosEN(src,1), nodePosEN(src,2), 'og', ...
+    'markerfacecolor', 'g', 'MarkerSize', 10);
+legDest = plot(nodePosEN(dest,1), nodePosEN(dest,2), 'or', ...
+    'markerfacecolor', 'r', 'MarkerSize', 10);
