@@ -12,7 +12,7 @@ function nodeObj = getNodeMem(numNodes)
 % History
 % Created 3/7/2021 ZV
 
-startingSize = 10;
+startingSize = 0;
 %Stores all of the information of paths that we're on
 %src, dest, incomingNode, outgoingNode, srcDist, destDist
 nodeObj.pathTable = zeros(startingSize, 6); %path to each other node

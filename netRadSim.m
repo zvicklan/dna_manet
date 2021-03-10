@@ -69,6 +69,7 @@ loadHistory = zeros(numPlats, loadMemLength);
 abrTickTable = zeros(numPlats);
 tickSize = 50;
 msgSize = 500;
+abrPathMem = createMemStruct(numPlats); %ABR memory for paths
 
 %plot everybody
 simFig = 1;
@@ -114,26 +115,44 @@ for ii = 0:simTime
         msgInd = ii*msgsPerSec + mm;
         %First, we need to check if we have this path
         memPath = pathMemArr{src, dest};
+        [hasRoute, success, abrPath] = readRouteABR(src, dest, abrPathMem);
         
-        %If so, attempt to use path
-        if ~isempty(memPath)
-            [success, usedPath, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
-                allLinks, memPath);
-            %check that it got there
-            msgSuccess(msgInd) = success;
+        %ABR Stuff
+        if success 
+            %Now check against links
+            [msgSuccess(msgInd), usedPath, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
+                allLinks, abrPath);
             
-            if ~success
+            if ~msgSuccess(msgInd)
                 %Report broken path
                 pathMemArr = removePath(pathMemArr, oldPath, existingPath); %TODO - do I want to restart?
                 msgSuccess(msgInd) = 0; %reinitialize to 0 each time'
             end
-            if success && debugMode
+            if msgSuccess(msgInd) && debugMode
                 %super cool plotting
                 legendHandle = debugPlot(debugFig, msgInd, allLinks, bwMatrix, ...
                     nodePosEN, src, dest, usedPath, plat1s, plat2s, plat3s, ...
                     startSize, ii, msgSuccess(msgInd), legendHandle);
             end
         end
+        
+%         %If so, attempt to use path
+%         if ~isempty(memPath)
+%             [msgSuccess(msgInd), usedPath, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
+%                 allLinks, memPath);
+%             
+%             if ~msgSuccess(msgInd)
+%                 %Report broken path
+%                 pathMemArr = removePath(pathMemArr, oldPath, existingPath); %TODO - do I want to restart?
+%                 msgSuccess(msgInd) = 0; %reinitialize to 0 each time'
+%             end
+%             if msgSuccess(msgInd) && debugMode
+%                 %super cool plotting
+%                 legendHandle = debugPlot(debugFig, msgInd, allLinks, bwMatrix, ...
+%                     nodePosEN, src, dest, usedPath, plat1s, plat2s, plat3s, ...
+%                     startSize, ii, msgSuccess(msgInd), legendHandle);
+%             end
+%         end
         
         if ~msgSuccess(msgInd)
             %If we need a new route, we find it
@@ -154,7 +173,8 @@ for ii = 0:simTime
             
             %And save it so all nodes have memory
             if msgSuccess(msgInd)
-                pathMemArr = saveNewPath(pathMemArr, bestPath);
+%                 pathMemArr = saveNewPath(pathMemArr, bestPath);
+                abrPathMem = saveNewPathABR(abrPathMem, bestPath);
             end
         end
     end
