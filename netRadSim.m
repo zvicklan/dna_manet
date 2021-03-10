@@ -141,7 +141,7 @@ for ii = 0:simTime
                 hold all;
                 xlabel('E')
                 ylabel('N')
-                title(sprintf('t = %d, - m = %d, success = %d', ...
+                title(sprintf('t = %d, m = %d, success = %d', ...
                     ii, msgInd, msgSuccess(msgInd)))
                 if exist('hLeg', 'var')
                     set(hLeg, 'Visible', 'Off');
