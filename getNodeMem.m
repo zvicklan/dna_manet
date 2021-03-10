@@ -12,7 +12,7 @@ function nodeObj = getNodeMem(numNodes)
 % History
 % Created 3/7/2021 ZV
 
-nodeObj.paths = cell(numNodes, 1); %path to each other node
-nodeObj.newMsgs = {};
-nodeObj.outMsgCount = 0; %used for iding each message
-nodeObj.seenList = []; %we're gonna store this as a hash table
+startingSize = 10;
+%Stores all of the information of paths that we're on
+%src, dest, incomingNode, outgoingNode, srcDist, destDist
+nodeObj.pathTable = zeros(startingSize, 6); %path to each other node

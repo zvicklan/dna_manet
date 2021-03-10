@@ -73,6 +73,7 @@ msgSize = 500;
 %plot everybody
 simFig = 1;
 debugFig = 2;
+legendHandle = 0;
 for ii = 0:simTime
     %Get state information for this time stamp
     nodePosEN = [plat1s; plat2s; plat3s];
@@ -126,6 +127,12 @@ for ii = 0:simTime
                 pathMemArr = removePath(pathMemArr, oldPath, existingPath); %TODO - do I want to restart?
                 msgSuccess(msgInd) = 0; %reinitialize to 0 each time'
             end
+            if success && debugMode
+                %super cool plotting
+                legendHandle = debugPlot(debugFig, msgInd, allLinks, bwMatrix, ...
+                    nodePosEN, src, dest, usedPath, plat1s, plat2s, plat3s, ...
+                    startSize, ii, msgSuccess(msgInd), legendHandle);
+            end
         end
         
         if ~msgSuccess(msgInd)
@@ -136,36 +143,9 @@ for ii = 0:simTime
             
             if debugMode
                 %super cool plotting
-                figure(debugFig)
-                cla
-                hold all;
-                xlabel('E')
-                ylabel('N')
-                title(sprintf('t = %d, m = %d, success = %d', ...
-                    ii, msgInd, msgSuccess(msgInd)))
-                if exist('hLeg', 'var')
-                    set(hLeg, 'Visible', 'Off');
-                end
-                %Plotting SRC and DEST twice so visible for debugging
-                legAllLinks = plotLinks(allLinks, nodePosEN, 'k', 5);
-                plotSrcDest(src, dest, nodePosEN);
-                legUsedLinks = plotLinks(bwMatrix, nodePosEN, 'y', 3);
-                plotSrcDest(src, dest, nodePosEN);
-                legNet  = plot(plat1s(:,1), plat1s(:,2), 'ob');
-                legComm = plot(plat2s(:,1), plat2s(:,2), 'ob', 'markerfacecolor', 'b');
-                legGS   = plot(plat3s(:,1), plat3s(:,2), 'ok', 'markerfacecolor', 'k');
-                if ~isempty(bestPath)
-                    legPath = plotPath(bestPath, allLinks, nodePosEN, 'g');
-                else
-                    legPath = plot(nodePosEN(1) * ones(2,1), nodePosEN(2) * ones(2,1), 'g');
-                end
-                [legSrc, legDest] = plotSrcDest(src, dest, nodePosEN);
-                hLeg = legend([legSrc, legDest, legNet, legComm, legGS, legAllLinks, ...
-                    legUsedLinks, legPath], ...
-                    {'Src', 'Dest', 'Net Drones', 'Comm Drones', ...
-                    'Ground Stations', 'All Links', 'Used Links', 'Best Path'});
-                xlim(startSize * [-1, 1])
-                ylim(startSize * [-1, 1])
+                legendHandle = debugPlot(debugFig, msgInd, allLinks, bwMatrix, ...
+                    nodePosEN, src, dest, bestPath, plat1s, plat2s, plat3s, ...
+                    startSize, ii, msgSuccess(msgInd), legendHandle);
             end
                 
             %Update each node's BW usage and BW over each link
