@@ -134,7 +134,7 @@ for ii = 0:simTime
             
             if ~msgSuccess(msgInd)
                 %Report broken path
-                pathMemArr = removePath(pathMemArr, oldPath, existingPath); %TODO - do I want to restart?
+                pathMemArr = fixPathABR(pathMemArr, allLinks, abrPath, usedPath); %TODO - do I want to restart?
                 msgSuccess(msgInd) = 0; %reinitialize to 0 each time'
             end
             %super cool plotting
@@ -166,7 +166,7 @@ for ii = 0:simTime
         if ~msgSuccess(msgInd)
             %If we need a new route, we find it
             [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryPhase(src, dest, ...
-                allLinks, remainingBW, msgSize);
+                allLinks, remainingBW, abrTickTable, msgSize);
             msgSuccess(msgInd) = ~isempty(bestPath);
                 
             %Update each node's BW usage and BW over each link
