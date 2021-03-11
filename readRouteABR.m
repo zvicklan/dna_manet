@@ -6,7 +6,7 @@ function [srcHasRoute, success, abrPath] = readRouteABR(src, dest, abrPathMem)
 % Tests
 % abrPathMem = createMemStruct(5);
 % newPath = [1, 3, 2, 5, 4];
-% abrPathMem = saveNewPathABR(abrPathMem, newPath)
+% [~,~,~,abrPathMem] = saveNewPathABR(abrPathMem, newPath)
 % src = 1;
 % dest = 4;
 % [hasRoute, success, usedPath] = readRouteABR(src, dest, abrPathMem)

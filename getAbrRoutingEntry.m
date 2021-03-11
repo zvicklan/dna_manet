@@ -18,7 +18,7 @@ function [hasRoute, abrRow, abrPathMem] = getAbrRoutingEntry(src, dest, ...
 % Test
 % abrPathMem = createMemStruct(5);
 % newPath = [1, 3, 2, 5, 4];
-% abrPathMem = saveNewPathABR(abrPathMem, newPath)
+% [~,~,~,abrPathMem] = saveNewPathABR(abrPathMem, newPath)
 % [hasRoute, abrRow] = getAbrRoutingEntry(1, 4, 1, abrPathMem)
 % [hasRoute, abrRow] = getAbrRoutingEntry(1, 4, 3, abrPathMem)
 % [hasRoute, abrRow] = getAbrRoutingEntry(1, 5, 1, abrPathMem)

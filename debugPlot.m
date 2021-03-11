@@ -1,4 +1,4 @@
-function legendHandle = debugPlot(debugFig, msgInd, allLinks, bwMatrix, ...
+function legendHandle = debugPlot(debugFig, msgInd, linkMatrix, bwMatrix, ...
     nodePosEN, src, dest, path, plat1s, plat2s, plat3s, startSize, ...
     timeStamp, msgSuccess, legendHandle)
 %Just a wrapper to help with plotting
@@ -15,7 +15,7 @@ if legendHandle ~= 0
     set(legendHandle, 'Visible', 'Off');
 end
 %Plotting SRC and DEST twice so visible for debugging
-legAllLinks = plotLinks(allLinks, nodePosEN, 'k', 5);
+legAllLinks = plotLinks(linkMatrix, nodePosEN, 'k', 5);
 plotSrcDest(src, dest, nodePosEN);
 legUsedLinks = plotLinks(bwMatrix, nodePosEN, 'y', 3);
 plotSrcDest(src, dest, nodePosEN);
@@ -23,7 +23,7 @@ legNet  = plot(plat1s(:,1), plat1s(:,2), 'ob');
 legComm = plot(plat2s(:,1), plat2s(:,2), 'ob', 'markerfacecolor', 'b');
 legGS   = plot(plat3s(:,1), plat3s(:,2), 'ok', 'markerfacecolor', 'k');
 if ~isempty(path)
-    legPath = plotPath(path, allLinks, nodePosEN, 'g');
+    legPath = plotPath(path, linkMatrix, nodePosEN, 'g');
 else
     legPath = plot(nodePosEN(1) * ones(2,1), nodePosEN(2) * ones(2,1), 'g');
 end

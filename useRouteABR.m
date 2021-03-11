@@ -1,4 +1,4 @@
-function [hasRoute, success, usedPath] = readRouteABR(src, ...
+function [hasRoute, success, usedPath] = useRouteABR(src, ...
     dest, abrPathMem)
 %Function will step through the abrPath and attempt to use it. Will kick
 %out as far as it made it if it fails
@@ -7,7 +7,7 @@ function [hasRoute, success, usedPath] = readRouteABR(src, ...
 % Tests
 % abrPathMem = createMemStruct(5);
 % newPath = [1, 3, 2, 5, 4];
-% abrPathMem = saveNewPathABR(abrPathMem, newPath)
+% [~,~,~,abrPathMem] = saveNewPathABR(abrPathMem, newPath)
 % links = [0 1 1 0 0;
 %     1 0 1 1 1; 
 %     1 1 0 0 1;

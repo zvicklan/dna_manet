@@ -31,7 +31,7 @@ function [totalTx, totalRx, bwMatrix, abrPathMem] = routeDeletionPhase(src, dest
 % remainingBW = 100 * ones(5,1);
 % abrPathMem = createMemStruct(5);
 % newPath = [1, 2, 4, 5];
-% abrPathMem = saveNewPathABR(abrPathMem, newPath)
+% [~,~,~,abrPathMem] = saveNewPathABR(abrPathMem, newPath)
 % [totalTx, totalRx, bwMatrix, abrPathMem] = routeDeletionPhase(1, 5, ...
 %     linkMatrix, abrPathMem)
 % 
@@ -55,3 +55,4 @@ for ii = 1:numNodes
     [~, ~, abrPathMem] = getAbrRoutingEntry(src, dest, node, abrPathMem, ...
         removeFlag);
 end
+fprintf('    Deleted path from %d to %d\n', src, dest);

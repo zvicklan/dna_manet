@@ -1,5 +1,5 @@
 function [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(src, dest, ...
-    linkMatrix, msgSize, fullBroadcastFlag)
+    linkMatrix, msgSize, fullBroadcastFlag, maxSteps, existingPath)
 % Finds all links from src to dest without duplicates
 %
 % Input
@@ -10,6 +10,8 @@ function [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(src, dest, ...
 %   msgSize - optional flag - size of msg
 %   fullBroadcastFlag - bool to make it do a full broadcast, not stop at
 %       dest
+%   maxSteps - num - we can only do a certain number of steps
+%   existingPath - vec - optional starting point for a path
 %
 % Output
 %   goodPaths - mx1 cell array of m possible paths
@@ -40,11 +42,26 @@ function [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(src, dest, ...
 % [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(1, 5, linkMatrix)
 % % two options then through same point (should only return 1)
 % linkMatrix = [0 1 1 0 0;
-%     1 0 0 1 0;
-%     1 0 0 1 0;
+%     1 0 1 1 0;
+%     1 1 0 1 0;
 %     0 1 1 0 1;
 %     0 0 0 1 0];
-% [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(1, 5, linkMatrix)
+% [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(1, 5, linkMatrix, 500)
+% % Test rebuild
+% linkMatrix = [0 1 1 0 0;
+%     1 0 1 1 0;
+%     1 1 0 1 0;
+%     0 1 1 0 1;
+%     0 0 0 1 0];
+% [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(1, 4, linkMatrix, 500, 0, 4, [1,2])
+% [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(1, 5, linkMatrix, 500, 0, 3, [1,2])
+% linkMatrix = [0 1 1 0 0;
+%     1 0 1 1 0;
+%     1 1 0 1 1;
+%     0 1 1 0 0;
+%     0 0 1 0 0];
+% [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(1, 5, linkMatrix, 500, 0, 3, [1,2,4])
+% [goodPaths, totalTx, totalRx, bwMatrix] = getGoodPaths(1, 5, linkMatrix, 500, 0, 3, [1,2])
 %
 % History
 % Created 3/7/2021 ZV - helper for routeDiscoveryPhase
@@ -55,6 +72,12 @@ if ~exist('msgSize', 'var')
 end
 if ~exist('fullBroadcastFlag', 'var')
     fullBroadcastFlag = 0;
+end
+if ~exist('maxSteps', 'var')
+    maxSteps = inf;
+end
+if ~exist('existingPath', 'var')
+    existingPath = src;
 end
 
 numNodes = size(linkMatrix, 1);
@@ -69,7 +92,7 @@ hasTXed = zeros(numNodes, 1);
 %I think we want to do a breadth-first search. Except it'll keep going
 %until we've gotten from src to dest every possible way. Then we'll store
 %all the paths and choose the best
-paths = {[src]};
+paths = {existingPath};
 goodPaths ={};
 while numel(paths) > 0
     % Grab a path, add neighbors
@@ -83,8 +106,9 @@ while numel(paths) > 0
     end
     
     
-    if numel(myPath) > numel(unique(myPath)) || hasTXed(thisNode)
-        %Loop has a duplicate OR has already transmitted
+    if numel(myPath) > numel(unique(myPath)) || hasTXed(thisNode) || ...
+            numel(myPath) >= maxSteps + 1
+        %Loop has a duplicate OR has already transmitted OR is max length
         %nop
     else
         if ~isempty(find(myPath == dest, 1))

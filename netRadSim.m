@@ -5,13 +5,16 @@
 
 % Make the sim consistent
 rng('default');
-close all;
+% close all;
 clear;
 clc
 
 %Sim setup
 simTime = 10; %seconds?
-debugMode = 1;
+debugMode = 0;
+
+%Save setup
+saveDir = '..\saveData\';
 
 %Plot characteristics
 boxSize = 100;
@@ -22,8 +25,8 @@ numPlat1s = 50;     %numbers
 numPlat2s = 5;
 numPlat3s = 2;
 numPlats = numPlat1s + numPlat2s + numPlat3s;
-vel1 = 0;%5;           %Speeds
-vel2 = 0;%3;
+vel1 = 5;           %Speeds
+vel2 = 3;
 vel3 = 0;   
 maxBW1 = 50e3;      %Bandwidths
 maxBW2 = 200e3;
@@ -65,8 +68,7 @@ convoMsgPairs = getSrcDestPairs(numPlats, numConvos);
 newMsgPairs = getSrcDestPairs(numPlats, totalMsgs);
 msgSuccess = zeros(totalMsgs, 1);
 loadMemLength = 10;
-validMemDataPts = 0;
-loadHistory = zeros(numPlats, loadMemLength);
+loadHistory = zeros(numPlats, simTime + 1);
 
 %Associativity Based Routing stuff
 abrTickTable = zeros(numPlats);
@@ -89,10 +91,10 @@ for ii = 0:simTime
     %Alternate this every time stamp to simulate a conversation
     convoMsgPairs = fliplr(convoMsgPairs); 
     
-    if validMemDataPts == 0 %no load history
+    if ii == 0 %no load history
         remainingBW = maxBWVec;
     else
-        remainingBW = maxBWVec - mean(loadHistory(:, 1:validMemDataPts));
+        remainingBW = maxBWVec - mean(loadHistory(:, max(ii-loadMemLength, 1):ii));
     end
     linkUsageMatrix = zeros(numPlats, numPlats);
     
@@ -107,11 +109,31 @@ for ii = 0:simTime
     linkMatrix2 = zeroRandomFields(linkMatrix2, 1-linkFail2);
     linkMatrix3 = zeroRandomFields(linkMatrix3, 1-linkFail3);
     
-    allLinks = combineLinks(linkMatrix1, 2*linkMatrix2, 3*linkMatrix3);
+    linkMatrix = combineLinks(linkMatrix1, 2*linkMatrix2, 3*linkMatrix3);
     
     %everyone pings
-    theseTicks = double(allLinks > 0);
+    theseTicks = double(linkMatrix > 0);
     abrTickTable = abrTickTable + theseTicks;
+    
+    %Visualize overall Sim
+    figure(simFig)
+    cla
+    hold all
+    legNet  = plot(plat1s(:,1), plat1s(:,2), 'ob');
+    legComm = plot(plat2s(:,1), plat2s(:,2), 'og', 'markerfacecolor', 'g');
+    legGS   = plot(plat3s(:,1), plat3s(:,2), 'ok', 'markerfacecolor', 'k');
+    legUAV   = plot(threats(:,1), threats(:,2), 'or', 'markerfacecolor', 'r');
+    legLinks3 = plotLinks(linkMatrix == 3, nodePosEN);
+    legLinks = plotLinks(linkMatrix == 1, nodePosEN, 'b');
+    legLinks2 = plotLinks(linkMatrix == 2, nodePosEN, 'g');
+    
+    xlabel('E')
+    ylabel('N')
+    title(['t = ', num2str(ii)]);
+    xlim(startSize * [-1, 1])
+    ylim(startSize * [-1, 1])
+    legend([legNet, legComm, legGS, legUAV, legLinks3, legLinks2, legLinks], {'Net Drones', ...
+        'Comm Drones', 'Ground Stations', 'Enemy UAVs', 'Gnd Links', 'G2S Links', 'Swarm Links'});
     
     %Send all msgs for this timestamp
     for mm = 1:numMsgs
@@ -127,21 +149,40 @@ for ii = 0:simTime
         if success 
             %Now check against links
             [msgSuccess(msgInd), usedPath, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
-                allLinks, abrPath);
+                linkMatrix, abrPath);
             %Update each node's BW usage and BW over each link
             loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
             linkUsageMatrix = linkUsageMatrix + bwMatrix;
             
+            fprintf('t=%d,m=%d. Using existing route for %d to %d. Success %d\n', ...
+                ii, mm, src, dest, msgSuccess(msgInd));
             if ~msgSuccess(msgInd)
                 %Report broken path
-                [bestPath, totalTx, totalRx, bwMatrix, pathMemArr] = ...
-                    fixPathABR(pathMemArr, allLinks, remainingBW, tickMatrix, ...
+                [usedPath, totalTx, totalRx, bwMatrix, abrPathMem] = ...
+                    fixPathABR(abrPathMem, linkMatrix, remainingBW, abrTickTable, ...
                     src, dest, usedPath(end), msgSize);
-                msgSuccess(msgInd) = 0; %reinitialize to 0 each time'
+                msgSuccess(msgInd) = ~isempty(bestPath);
+                %Update each node's BW usage and BW over each link
+                loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
+                linkUsageMatrix = linkUsageMatrix + bwMatrix;
+                fprintf('t=%d,m=%d. Existing route broken for %d to %d. Success %d\n', ...
+                    ii, mm, src, dest, msgSuccess(msgInd));
+                
+                %And save it so all nodes have memory
+                if msgSuccess(msgInd)
+                    pathMemArr = saveNewPath(pathMemArr, usedPath);
+                    
+                    %Save the ABR way
+                    [totalTx, totalRx, bwMatrix, abrPathMem] = ...
+                        saveNewPathABR(abrPathMem, usedPath, msgSize);
+                    %Update each node's BW usage and BW over each link
+                    loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
+                    linkUsageMatrix = linkUsageMatrix + bwMatrix;
+                end 
             end
             %super cool plotting
             if msgSuccess(msgInd) && debugMode
-                legendHandle = debugPlot(debugFig, msgInd, allLinks, bwMatrix, ...
+                legendHandle = debugPlot(debugFig, msgInd, linkMatrix, bwMatrix, ...
                     nodePosEN, src, dest, usedPath, plat1s, plat2s, plat3s, ...
                     startSize, ii, msgSuccess(msgInd), legendHandle);
             end
@@ -150,7 +191,7 @@ for ii = 0:simTime
 %         %If so, attempt to use path
 %         if ~isempty(memPath)
 %             [msgSuccess(msgInd), usedPath, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
-%                 allLinks, memPath);
+%                 linkMatrix, memPath);
 %             
 %             if ~msgSuccess(msgInd)
 %                 %Report broken path
@@ -159,7 +200,7 @@ for ii = 0:simTime
 %             end
 %             if msgSuccess(msgInd) && debugMode
 %                 %super cool plotting
-%                 legendHandle = debugPlot(debugFig, msgInd, allLinks, bwMatrix, ...
+%                 legendHandle = debugPlot(debugFig, msgInd, linkMatrix, bwMatrix, ...
 %                     nodePosEN, src, dest, usedPath, plat1s, plat2s, plat3s, ...
 %                     startSize, ii, msgSuccess(msgInd), legendHandle);
 %             end
@@ -168,17 +209,33 @@ for ii = 0:simTime
         if ~msgSuccess(msgInd)
             %If we need a new route, we find it
             [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryPhase(src, dest, ...
-                allLinks, remainingBW, abrTickTable, msgSize);
+                linkMatrix, remainingBW, abrTickTable, msgSize);
             msgSuccess(msgInd) = ~isempty(bestPath);
                 
+            fprintf('t=%d,m=%d. Route discovery for %d to %d. Success %d\n', ...
+                ii, mm, src, dest, msgSuccess(msgInd));
             %Update each node's BW usage and BW over each link
             loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
             linkUsageMatrix = linkUsageMatrix + bwMatrix;
             
+            
+            %super cool plotting - just want to see output of discovery
+            if debugMode
+                legendHandle = debugPlot(debugFig, msgInd, linkMatrix, bwMatrix, ...
+                    nodePosEN, src, dest, bestPath, plat1s, plat2s, plat3s, ...
+                    startSize, ii, msgSuccess(msgInd), legendHandle);
+            end
+            
             %And save it so all nodes have memory
             if msgSuccess(msgInd)
-%                 pathMemArr = saveNewPath(pathMemArr, bestPath);
-                abrPathMem = saveNewPathABR(abrPathMem, bestPath);
+                pathMemArr = saveNewPath(pathMemArr, bestPath);
+                
+                %Save the ABR way
+                [totalTx, totalRx, bwMatrix, abrPathMem] = ...
+                    saveNewPathABR(abrPathMem, bestPath, msgSize);
+                %Update each node's BW usage and BW over each link
+                loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
+                linkUsageMatrix = linkUsageMatrix + bwMatrix;
             end
             
             % Delete routes that we don't want to keep for long term
@@ -187,46 +244,17 @@ for ii = 0:simTime
                 if ~any(ismember(convoMsgPairs, [src, dest], 'rows')) && ...
                     ~any(ismember(convoMsgPairs, [dest, src], 'rows'))
                     [totalTx, totalRx, bwMatrix, abrPathMem] = routeDeletionPhase(src, dest, ...
-                        allLinks, abrPathMem, msgSize);
+                        linkMatrix, abrPathMem, msgSize);
                     %Update each node's BW usage and BW over each link
                     loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
                     linkUsageMatrix = linkUsageMatrix + bwMatrix;
                 end
             end
-            
-            %super cool plotting
-            if debugMode
-                legendHandle = debugPlot(debugFig, msgInd, allLinks, bwMatrix, ...
-                    nodePosEN, src, dest, bestPath, plat1s, plat2s, plat3s, ...
-                    startSize, ii, msgSuccess(msgInd), legendHandle);
-            end
-            
         end
     end
     
     %Add ticks as well
-    linkUsageMatrix = linkUsageMatrix + tickSize*theseTicks;
-    %Visualize
-    figure(simFig)
-    cla
-    hold all
-    legNet  = plot(plat1s(:,1), plat1s(:,2), 'ob');
-    legComm = plot(plat2s(:,1), plat2s(:,2), 'og', 'markerfacecolor', 'g');
-    legGS   = plot(plat3s(:,1), plat3s(:,2), 'ok', 'markerfacecolor', 'k');
-    legUAV   = plot(threats(:,1), threats(:,2), 'or', 'markerfacecolor', 'r');
-    legLinks3 = plotLinks(allLinks == 3, nodePosEN);
-    legLinks = plotLinks(allLinks == 1, nodePosEN, 'b');
-    legLinks2 = plotLinks(allLinks == 2, nodePosEN, 'g');
-    
-    xlabel('E')
-    ylabel('N')
-    title(['t = ', num2str(ii)]);
-    xlim(startSize * [-1, 1])
-    ylim(startSize * [-1, 1])
-    legend([legNet, legComm, legGS, legUAV, legLinks3, legLinks2, legLinks], {'Net Drones', ...
-        'Comm Drones', 'Ground Stations', 'Enemy UAVs', 'Gnd Links', 'G2S Links', 'Swarm Links'});
-    pause(1)
-    
+    linkUsageMatrix = linkUsageMatrix + tickSize*theseTicks;  
     
     
     %And update
@@ -241,6 +269,11 @@ for ii = 0:simTime
     
     %Update radio usage - shift right, increment total counter
     loadHistory = [zeros(numPlats, 1), loadHistory(:, 1:loadMemLength - 1)];
-    validMemDataPts = min(validMemDataPts + 1, loadMemLength);
+    
+    %Write out linkUsageMatrix to csv - network data
+    filename = sprintf('%slinkUsage_t_%d.csv', saveDir, ii);
+    writematrix(linkUsageMatrix, [saveDir, filename]);
 end
+%write out loadHistory
+writematrix(loadHistory, [saveDir, 'loadHistory.csv']);
     
