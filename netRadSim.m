@@ -22,8 +22,8 @@ numPlat1s = 50;     %numbers
 numPlat2s = 5;
 numPlat3s = 2;
 numPlats = numPlat1s + numPlat2s + numPlat3s;
-vel1 = 5;           %Speeds
-vel2 = 3;
+vel1 = 0;%5;           %Speeds
+vel2 = 0;%3;
 vel3 = 0;   
 maxBW1 = 50e3;      %Bandwidths
 maxBW2 = 200e3;
@@ -134,7 +134,9 @@ for ii = 0:simTime
             
             if ~msgSuccess(msgInd)
                 %Report broken path
-                pathMemArr = fixPathABR(pathMemArr, allLinks, abrPath, usedPath); %TODO - do I want to restart?
+                [bestPath, totalTx, totalRx, bwMatrix, pathMemArr] = ...
+                    fixPathABR(pathMemArr, allLinks, remainingBW, tickMatrix, ...
+                    src, dest, usedPath(end), msgSize);
                 msgSuccess(msgInd) = 0; %reinitialize to 0 each time'
             end
             %super cool plotting

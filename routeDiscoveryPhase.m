@@ -57,33 +57,4 @@ bestPath = [];
 if isempty(goodPaths) %no paths found
     return;
 end
-
-%% Now choose the best path
-numPaths = numel(goodPaths);
-numOverloads = zeros(numPaths, 1);
-numSteps = zeros(numPaths, 1);
-tickScores = zeros(numPaths, 1);
-
-%Capture the important metrics
-for ii = 1:numPaths
-    thisPath = goodPaths{ii};
-    numOverloads(ii) = sum(remainingBW(thisPath) <= 0);
-    numSteps(ii) = numel(thisPath);
-    tickScores(ii) = getTickScore(thisPath, tickMatrix, tickThreshold);
-end
-
-%Downfilter on acceptable paths (no overloads)
-acceptablePaths = goodPaths(numOverloads == 0);
-numSteps = numSteps(numOverloads == 0);
-tickScores = tickScores(numOverloads == 0);
-
-%Find the minimum number of steps
-minPaths = numSteps == min(numSteps);
-acceptablePaths = acceptablePaths(minPaths);
-tickScores = tickScores(minPaths);
-
-[~, ind] = max(tickScores);
-if ~isempty(ind) %no usable paths
-    bestPath = acceptablePaths(ind);
-end
-    
+bestPath = choosePath(goodPaths, remainingBW, tickMatrix, tickThreshold);
