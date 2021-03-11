@@ -52,14 +52,17 @@ vel3s = genRandVelsStop(numPlat3s, stopPerc3, 0, vel3);
 linkRadius1 = 10;
 linkRadius2 = 20;
 linkRadius3 = inf;
-linkFail1 = 0.6;
-linkFail2 = 0.9;
+linkFail1 = 1;%0.6;
+linkFail2 = 1;%0.9;
 linkFail3 = 1;
 
 %Set up the messages to send (same for all routing strategies)
-msgsPerSec = 100; 
-totalMsgs = (simTime + 1) * msgsPerSec; %because counting 0 and max
-allMsgs = getSrcDestPairs(numPlats, totalMsgs);
+numConvos = 5;
+newMsgsPerSec = 5; 
+numMsgs = newMsgsPerSec + numConvos;
+totalMsgs = (simTime + 1) * numMsgs; %because counting 0 and max
+convoMsgPairs = getSrcDestPairs(numPlats, numConvos);
+newMsgPairs = getSrcDestPairs(numPlats, totalMsgs);
 msgSuccess = zeros(totalMsgs, 1);
 loadMemLength = 10;
 validMemDataPts = 0;
@@ -81,8 +84,11 @@ for ii = 0:simTime
     linkMatrix1 = getPossibleLinks(nodePosEN, linkRadius1);
     
     %Get msgs for this time stamp
-    numMsgs = msgsPerSec;
-    nowMsgs = allMsgs(ii*msgsPerSec + 1 : (ii+1)*msgsPerSec, :);
+    newMsgs = newMsgPairs(ii*newMsgsPerSec + 1 : (ii+1)*newMsgsPerSec, :);
+    nowMsgs = [convoMsgPairs; newMsgs];
+    %Alternate this every time stamp to simulate a conversation
+    convoMsgPairs = fliplr(convoMsgPairs); 
+    
     if validMemDataPts == 0 %no load history
         remainingBW = maxBWVec;
     else
@@ -112,7 +118,7 @@ for ii = 0:simTime
         thisMsg = nowMsgs(mm,:);
         src = thisMsg(1);
         dest = thisMsg(2);
-        msgInd = ii*msgsPerSec + mm;
+        msgInd = ii*numMsgs + mm;
         %First, we need to check if we have this path
         memPath = pathMemArr{src, dest};
         [hasRoute, success, abrPath] = readRouteABR(src, dest, abrPathMem);
@@ -122,14 +128,17 @@ for ii = 0:simTime
             %Now check against links
             [msgSuccess(msgInd), usedPath, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
                 allLinks, abrPath);
+            %Update each node's BW usage and BW over each link
+            loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
+            linkUsageMatrix = linkUsageMatrix + bwMatrix;
             
             if ~msgSuccess(msgInd)
                 %Report broken path
                 pathMemArr = removePath(pathMemArr, oldPath, existingPath); %TODO - do I want to restart?
                 msgSuccess(msgInd) = 0; %reinitialize to 0 each time'
             end
+            %super cool plotting
             if msgSuccess(msgInd) && debugMode
-                %super cool plotting
                 legendHandle = debugPlot(debugFig, msgInd, allLinks, bwMatrix, ...
                     nodePosEN, src, dest, usedPath, plat1s, plat2s, plat3s, ...
                     startSize, ii, msgSuccess(msgInd), legendHandle);
@@ -159,13 +168,6 @@ for ii = 0:simTime
             [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryPhase(src, dest, ...
                 allLinks, remainingBW, msgSize);
             msgSuccess(msgInd) = ~isempty(bestPath);
-            
-            if debugMode
-                %super cool plotting
-                legendHandle = debugPlot(debugFig, msgInd, allLinks, bwMatrix, ...
-                    nodePosEN, src, dest, bestPath, plat1s, plat2s, plat3s, ...
-                    startSize, ii, msgSuccess(msgInd), legendHandle);
-            end
                 
             %Update each node's BW usage and BW over each link
             loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
@@ -176,6 +178,27 @@ for ii = 0:simTime
 %                 pathMemArr = saveNewPath(pathMemArr, bestPath);
                 abrPathMem = saveNewPathABR(abrPathMem, bestPath);
             end
+            
+            % Delete routes that we don't want to keep for long term
+            if mm > numConvos
+                %Just check it isn't also a convo first
+                if ~any(ismember(convoMsgPairs, [src, dest], 'rows')) && ...
+                    ~any(ismember(convoMsgPairs, [dest, src], 'rows'))
+                    [totalTx, totalRx, bwMatrix, abrPathMem] = routeDeletionPhase(src, dest, ...
+                        allLinks, abrPathMem, msgSize);
+                    %Update each node's BW usage and BW over each link
+                    loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
+                    linkUsageMatrix = linkUsageMatrix + bwMatrix;
+                end
+            end
+            
+            %super cool plotting
+            if debugMode
+                legendHandle = debugPlot(debugFig, msgInd, allLinks, bwMatrix, ...
+                    nodePosEN, src, dest, bestPath, plat1s, plat2s, plat3s, ...
+                    startSize, ii, msgSuccess(msgInd), legendHandle);
+            end
+            
         end
     end
     

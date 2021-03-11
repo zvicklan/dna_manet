@@ -1,4 +1,5 @@
-function [hasRoute, abrRow] = getAbrRoutingEntry(src, dest, node, abrPathMem)
+function [hasRoute, abrRow, abrPathMem] = getAbrRoutingEntry(src, dest, ...
+    node, abrPathMem, removeFlag)
 % Helper to grab info from ABR path memory
 % Returns the row of the next step
 % 
@@ -7,9 +8,12 @@ function [hasRoute, abrRow] = getAbrRoutingEntry(src, dest, node, abrPathMem)
 %   dest - scalar node number
 %   node - the node we are at  
 %   abrPathMem - the data struct
+%   removeFlag - removes the row from the table as returning it
 % 
 % Output
+%   hasRoute - bool indicating if the route was there
 %   abrRow - the 1x6 row from the path
+%   abrPathMem - updated ABR data struct
 % 
 % Test
 % abrPathMem = createMemStruct(5);
@@ -18,9 +22,16 @@ function [hasRoute, abrRow] = getAbrRoutingEntry(src, dest, node, abrPathMem)
 % [hasRoute, abrRow] = getAbrRoutingEntry(1, 4, 1, abrPathMem)
 % [hasRoute, abrRow] = getAbrRoutingEntry(1, 4, 3, abrPathMem)
 % [hasRoute, abrRow] = getAbrRoutingEntry(1, 5, 1, abrPathMem)
+% % Then try to remove it
+% [hasRoute, abrRow, abrPathMem] = getAbrRoutingEntry(1, 4, 1, abrPathMem, 1)
+% [hasRoute, abrRow] = getAbrRoutingEntry(1, 4, 1, abrPathMem)
 % 
 % History
 % 3/9/2021 ZV Created to help useRouteABR
+
+if ~exist('removeFlag', 'var')
+    removeFlag = 0;
+end
 
 hasRoute = 0;
 abrRow = [];
@@ -39,3 +50,7 @@ end
 
 hasRoute = 1;
 abrRow = nodePaths(pathInd, :);
+if removeFlag
+    abrPathMem(node).pathTable = [abrPathMem(node).pathTable(1:pathInd - 1, :);
+        abrPathMem(node).pathTable(pathInd + 1:end, :)];
+end
