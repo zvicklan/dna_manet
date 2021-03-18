@@ -41,7 +41,7 @@ if numel(pathInd) > 1
     disp(nodePaths)
     hasRoute = 1;
     error('%s: Routing table in node %d had %d paths to destNode %d\n', ...
-        mfilename, src, numel(pathInd), dest);
+        mfilename, node, numel(pathInd), dest);
 elseif numel(pathInd) == 0
     %no paths.
     hasRoute = 0;

@@ -47,12 +47,12 @@ fullBroadcastFlag = 1; %make getGoodPaths go everywhere!
     linkMatrix, msgSize, fullBroadcastFlag);
 
 %Then remove from memory
-nodeList = find(totalRx | totalTx);
-numNodes = numel(nodeList);
+% nodeList = find(totalRx | totalTx);
+% numNodes = numel(nodeList);
 removeFlag = 1;
-for ii = 1:numNodes
-    node = nodeList(ii);
-    [~, ~, abrPathMem] = getAbrRoutingEntry(src, dest, node, abrPathMem, ...
+for ii = 1:numel(totalTx)
+%     node = nodeList(ii);
+    [~, ~, abrPathMem] = getAbrRoutingEntry(src, dest, ii, abrPathMem, ...
         removeFlag);
 end
 fprintf('    Deleted path from %d to %d\n', src, dest);
