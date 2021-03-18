@@ -16,8 +16,6 @@ function enPts = getRndPtsInCircle(numPts, radius)
 % History
 % 3/11/2021 ZV Created
 
-enPts = zeros(numPts, 2);
-
 angles = 2*pi*rand(numPts,1);
 %Want linearly increasing probability over radius. Do this by adding two
 %rands (0, 2). abs(this) = linearly decreasing prob from 0 to 1. Switch it
