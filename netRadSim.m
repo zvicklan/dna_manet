@@ -11,7 +11,7 @@ clc
 
 %Sim setup
 simTime = 10; %seconds?
-debugMode = 0;
+debugMode = 1;
 
 %Save setup
 saveDir = '..\saveData\';

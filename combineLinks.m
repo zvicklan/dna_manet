@@ -25,4 +25,8 @@ d = size(mat3, 1);
 
 combined = mat1;
 combined(n-m+1:end, n-m+1:end) = mat2;
+%Zero out these last columns and rows (prevent 1-3 communication)
+combined(n-d+1:end, 1:n-m) = 0;
+combined(1:n-m, n-d+1:end) = 0;
+
 combined(n-d+1:end, n-d+1:end) = mat3;
