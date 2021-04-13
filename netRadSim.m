@@ -11,10 +11,19 @@ clc
 
 %Sim setup
 simTime = 10; %seconds?
-debugMode = 1;
+debugMode = 0;
 
 %Save setup
 saveDir = '..\saveData\';
+abrFile = [saveDir, 'abrlinks.csv'];
+dsrFile = [saveDir, 'dsrlinks.csv'];
+
+if exist(abrFile, 'file')
+    delete(abrFile);
+end
+if exist(dsrFile, 'file')
+    delete(dsrFile);
+end
 
 %Plot characteristics
 boxSize = 250;
@@ -95,7 +104,7 @@ for tt = 0:simTime
     else
         remainingBW = maxBWVec - mean(loadHistory(:, max(tt-loadMemLength, 1):tt));
     end
-    linkUsageMatrix = zeros(numPlats, numPlats);
+    linkUsageABR = zeros(numPlats, numPlats);
     
     %Then do the same for plat 2s to plat 3s. Note that we'll just
     %overwrite the link types
@@ -151,7 +160,7 @@ for tt = 0:simTime
                 linkMatrix, abrPath);
             %Update each node's BW usage and BW over each link
             loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
-            linkUsageMatrix = linkUsageMatrix + bwMatrix;
+            linkUsageABR = linkUsageABR + bwMatrix;
             
             fprintf('t=%d,m=%d. Using existing route for %d to %d. Success %d\n', ...
                 tt, mm, src, dest, msgSuccess(msgInd));
@@ -163,7 +172,7 @@ for tt = 0:simTime
                 msgSuccess(msgInd) = ~isempty(usedPath);
                 %Update each node's BW usage and BW over each link
                 loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
-                linkUsageMatrix = linkUsageMatrix + bwMatrix;
+                linkUsageABR = linkUsageABR + bwMatrix;
                 fprintf('t=%d,m=%d. Existing route broken for %d to %d. Success %d\n', ...
                     tt, mm, src, dest, msgSuccess(msgInd));
                 
@@ -176,7 +185,7 @@ for tt = 0:simTime
                         saveNewPathABR(abrPathMem, usedPath, msgSize);
                     %Update each node's BW usage and BW over each link
                     loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
-                    linkUsageMatrix = linkUsageMatrix + bwMatrix;
+                    linkUsageABR = linkUsageABR + bwMatrix;
                 end 
             end
             %super cool plotting
@@ -205,6 +214,7 @@ for tt = 0:simTime
 %             end
 %         end
         
+        % ABR route Discovery
         if ~msgSuccess(msgInd)
             %If we need a new route, we find it
             [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryPhase(src, dest, ...
@@ -215,7 +225,7 @@ for tt = 0:simTime
                 tt, mm, src, dest, msgSuccess(msgInd));
             %Update each node's BW usage and BW over each link
             loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
-            linkUsageMatrix = linkUsageMatrix + bwMatrix;
+            linkUsageABR = linkUsageABR + bwMatrix;
             
             
             %super cool plotting - just want to see output of discovery
@@ -234,7 +244,7 @@ for tt = 0:simTime
                     saveNewPathABR(abrPathMem, bestPath, msgSize);
                 %Update each node's BW usage and BW over each link
                 loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
-                linkUsageMatrix = linkUsageMatrix + bwMatrix;
+                linkUsageABR = linkUsageABR + bwMatrix;
             end
             
             % Delete routes that we don't want to keep for long term
@@ -246,14 +256,14 @@ for tt = 0:simTime
                         linkMatrix, abrPathMem, msgSize);
                     %Update each node's BW usage and BW over each link
                     loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
-                    linkUsageMatrix = linkUsageMatrix + bwMatrix;
+                    linkUsageABR = linkUsageABR + bwMatrix;
                 end
             end
         end
     end
     
     %Add ticks as well
-    linkUsageMatrix = linkUsageMatrix + tickSize*theseTicks;  
+    linkUsageABR = linkUsageABR + tickSize*theseTicks;  
     
     
     %And update
@@ -270,8 +280,8 @@ for tt = 0:simTime
     loadHistory = [zeros(numPlats, 1), loadHistory(:, 1:loadMemLength - 1)];
     
     %Write out linkUsageMatrix to csv - network data
-    filename = sprintf('%slinkUsage_t_%d.csv', saveDir, tt);
-    writematrix(linkUsageMatrix, [saveDir, filename]);
+    writeTimeData(tt, linkUsageABR, abrFile)
+%     writeTimeData(tt, linkUsageDSR, abrFile)
 end
 %write out loadHistory
 writematrix(loadHistory, [saveDir, 'loadHistory.csv']);
