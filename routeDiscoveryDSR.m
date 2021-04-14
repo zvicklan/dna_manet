@@ -79,7 +79,14 @@ while numel(paths) > 0
         end
         hasTXed(thisNode) = 1; %mark to not tx again
         if isempty(bestPath)
-            bestPath = [myPath(:); memPath(2:end)];
+            fprintf('%s: Using existing path from %d to %d. Orig src %d\n', ...
+                mfilename, thisNode, dest, src);
+            wouldBePath = [myPath(:); memPath(2:end)];
+            disp(wouldBePath.')
+            %check that there are no loops in here
+            if numel(wouldBePath) == numel(unique(wouldBePath))
+                bestPath = wouldBePath;
+            end
         end
     end
     

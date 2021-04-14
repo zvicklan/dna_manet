@@ -194,7 +194,7 @@ for tt = 0:simTime
             if msgSuccessABR(msgInd) && debugMode
                 legendHandle = debugPlot(debugFigABR, msgInd, linkMatrix, bwMatrix, ...
                     nodePosEN, src, dest, usedPath, plat1s, plat2s, plat3s, ...
-                    boxSize, tt, msgSuccessABR(msgInd), legendHandle);
+                    boxSize, tt, msgSuccessABR(msgInd), legendHandle, 'ABR');
             end
         end
         
@@ -257,6 +257,8 @@ for tt = 0:simTime
                 pathMemArr = removePath(pathMemArr, dsrMemPath, usedPath); 
                 msgSuccessDSR(msgInd) = 0; %reinitialize to 0 each time'
             end
+        else
+            usedPath = dsrMemPath;
         end
         %If we couldn't find one or it was bad find a new route
         if ~msgSuccessDSR(msgInd)
@@ -264,14 +266,14 @@ for tt = 0:simTime
             numTriesDSR = 3;
             for dsrTry = 1:numTriesDSR
                 %Get a path
-                [usedPath, totalTx, totalRx, bwMatrix] = routeDiscoveryDSR(src, dest, ...
+                [newPath, totalTx, totalRx, bwMatrix] = routeDiscoveryDSR(src, dest, ...
                     linkMatrix, pathMemArr, msgSize);
-                msgSuccessDSR(msgInd) = ~isempty(usedPath);
+                msgSuccessDSR(msgInd) = ~isempty(newPath);
                 %Update each node's BW usage and BW over each link
                 loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
                 linkUsageDSRmsg = linkUsageDSRmsg + bwMatrix;
 
-                if isempty(usedPath)
+                if isempty(newPath)
                     %No path found
                     msgSuccessDSR(msgInd) = 0;
                     break;
@@ -279,17 +281,19 @@ for tt = 0:simTime
                 
                 %Else, try to use the path
                 [msgSuccessDSR(msgInd), usedPath, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
-                    linkMatrix, usedPath);
+                    linkMatrix, newPath);
                 %Update each node's BW usage and BW over each link
                 loadHistory(:,1) = loadHistory(:,1) + totalTx + totalRx;
                 linkUsageDSRmsg = linkUsageDSRmsg + bwMatrix;
                 
                 if msgSuccessDSR(msgInd)
                     msgSuccessDSR(msgInd) = dsrTry; %store the # tries
-                    pathMemArr = saveNewPath(pathMemArr, usedPath);
+                    pathMemArr = saveNewPath(pathMemArr, newPath);
                     break; %found it, so stop
                 else
                     %Path didn't work. Try another one
+                    %Report broken path
+                    pathMemArr = removePath(pathMemArr, newPath, usedPath); 
                     continue;
                 end
             end
