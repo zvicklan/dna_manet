@@ -18,6 +18,10 @@ function writeTimeData(timeVal, data, filename)
 % History
 % 4/11/2021 ZV created
 
+useLinkTypes = 0; %set to 1 if you want
+if useLinkTypes
+    useLinkTypes = 1;
+end
 [numRows, numCols] = size(data);
 % First, manipulate the data
 vecSame = ones(numRows, 1);
@@ -27,7 +31,9 @@ cols = kron(vecSame, vecDiff);
 dataTransp = data';
 dataVec = dataTransp(:); %b/c MATLAB does this by going down columns and we want rows
 timeVec = repmat(timeVal, numRows * numCols, 1);
-agentLinkStrs = getAgentLinkInfo(rows, cols);
+
+%useLinkTypes toggles using Link types (otherwise all same)
+agentLinkStrs = getAgentLinkInfo(useLinkTypes * rows, useLinkTypes * cols); 
 allData = [agentLinkStrs(:,1), num2cell(rows), agentLinkStrs(:,2), num2cell(cols), ...
     num2cell(dataVec), agentLinkStrs(:,3), num2cell(timeVec)];
 %Write out. We don't need to do anything special to create the file

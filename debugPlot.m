@@ -1,6 +1,6 @@
 function legendHandle = debugPlot(debugFig, msgInd, linkMatrix, bwMatrix, ...
     nodePosEN, src, dest, path, plat1s, plat2s, plat3s, startSize, ...
-    timeStamp, msgSuccess, legendHandle)
+    timeStamp, msgSuccess, legendHandle, algType)
 %Just a wrapper to help with plotting
 % needs to keep the pointer to the legend, so it's returned
 
@@ -9,8 +9,8 @@ cla
 hold all;
 xlabel('E')
 ylabel('N')
-title(sprintf('t = %d, m = %d, success = %d', ...
-    timeStamp, msgInd, msgSuccess))
+title(sprintf('%s: t = %d, m = %d, success = %d', ...
+    algType, timeStamp, msgInd, msgSuccess))
 if legendHandle ~= 0
     set(legendHandle, 'Visible', 'Off');
 end
