@@ -11,9 +11,9 @@ function combined = combineLinks(mat1, mat2, mat3)
 %   combined - nxn link matrix
 % 
 % Test
-% mat1 = eye(10);
-% mat2 = 2*eye(5);
-% mat3 = 3*eye(3);
+% mat1 = ones(10);
+% mat2 = 2*ones(5);
+% mat3 = 3*ones(3);
 % combined = combineLinks(mat1, mat2, mat3)
 % 
 % History

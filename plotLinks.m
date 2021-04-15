@@ -22,7 +22,7 @@ function [legBiDir, legMonoDir] = plotLinks(linkMatrix, nodePosEN, colorStr, lin
 % History
 % Created ZV 3/1/2021
 
-if ~exist('lineWidth', 'var')
+if ~exist('colorStr', 'var')
     colorStr = 'k';
 end
 if ~exist('lineWidth', 'var')

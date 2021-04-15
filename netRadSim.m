@@ -2,18 +2,20 @@
 % ZV 2/26/2021
 % Want to play with a ratio of the velocity and range and how long the
 % connection lasts between two nodes
-function netRadSim(testNodeLoss, centralityType, runName)
+function netRadSim(allowMotion, testNodeLoss, centralityType, numEnemies, runName)
 % Make the sim consistent
 rng('default');
 % close all;
 % clear;
 % clc
-
+fclose('all');
 %Sim setup
 simTime = 100; %seconds?
 debugMode = 0;
 cutoutTime = 40;
+enemyTime = 60;
 numNodes = 3;
+gifDelay = 0.25; % this one really is seconds
 
 %Save setup
 if ~exist('runName', 'var')
@@ -24,15 +26,24 @@ if ~exist(saveDir, 'dir')
     mkdir(saveDir);
 end
 
+gifFile = [saveDir, 'simGif.gif'];
+linkFile = [saveDir, 'links.csv'];
 abrFile = [saveDir, 'abrlinks.csv'];
 dsrFile = [saveDir, 'dsrlinks.csv'];
 
+if exist(linkFile, 'file')
+    delete(linkFile);
+end
 if exist(abrFile, 'file')
     delete(abrFile);
 end
 if exist(dsrFile, 'file')
     delete(dsrFile);
 end
+
+linkFd = fopen(linkFile, 'w');
+abrFd = fopen(abrFile, 'w');
+dsrFd = fopen(dsrFile, 'w');
 
 %Plot characteristics
 boxSize = 250;
@@ -42,12 +53,19 @@ numPlat1s = 50;     %numbers
 numPlat2s = 5;
 numPlat3s = 2;
 numPlats = numPlat1s + numPlat2s + numPlat3s;
-vel1 = 10;           %Speeds
-vel2 = 5;
-vel3 = 0;
-maxBW1 = 50e3;      %Bandwidths
-maxBW2 = 200e3;
-maxBW3 = 500e3;
+%Set speeds (allow turning off motion)
+if allowMotion
+    vel1 = 10;           %Speeds
+    vel2 = 5;
+    vel3 = 0;
+else
+    vel1 = 0;           %Speeds
+    vel2 = 0;
+    vel3 = 0;
+end
+maxBW1 = 150e3;      %Bandwidths
+maxBW2 = 500e3;
+maxBW3 = 1000e3;
 maxBWVec = [maxBW1 * ones(numPlat1s, 1);
     maxBW2 * ones(numPlat2s, 1); ...
     maxBW3 * ones(numPlat3s, 1)]; %total bytes?
@@ -61,7 +79,12 @@ plat1s = boxSize * (rand(numPlat1s, 2) - .5);
 angles = 360/5 * (0:4);
 plat2s = genENSpots(angles, 50);
 plat3s = [ -10 0; 10 0];
-threats = [0, 200];
+
+%Set up enemy stuff
+if numEnemies
+    enemyAngles = 360/numEnemies * (0:(numEnemies-1));
+    threatsEN = genENSpots(enemyAngles, 200);
+end
 
 %Update vels
 vel1s = genRandVelsStop(numPlat1s, stopPerc1, 0, vel1);
@@ -72,8 +95,8 @@ vel3s = genRandVelsStop(numPlat3s, stopPerc3, 0, vel3);
 linkRadius1 = 50;
 linkRadius2 = 100;
 linkRadius3 = inf;
-linkProb1 = 0.6;
-linkProb2 = 0.9;
+linkProb1 = 0.8;
+linkProb2 = 0.95;
 linkProb3 = 1;
 
 %Set up the messages to send (same for all routing strategies)
@@ -124,7 +147,7 @@ for tt = 0:simTime
     if tt == 0 %no load history
         remainingBW = maxBWVec;
     else
-        remainingBW = maxBWVec - mean(loadHistoryABR(:, max(tt-loadMemLength, 1):tt));
+        remainingBW = maxBWVec - mean(loadHistoryABR(:, max(tt-loadMemLength, 1):tt), 2);
     end
     linkUsageABR = zeros(numPlats, numPlats);
     linkUsageDSR = zeros(numPlats, numPlats);
@@ -135,6 +158,32 @@ for tt = 0:simTime
     linkMatrix2 = getPossibleLinks(nodePosEN2, linkRadius2);
     linkMatrix3 = 1 - eye(numPlat3s); %only 0 on diagonal
     
+    %For centrality testing, use the full (un-failure-added) matrix
+    unmodLinkMatrix = combineLinks(linkMatrix1, linkMatrix2, linkMatrix3);
+    
+    %Now do the centrality shenanigans
+    if testNodeLoss && tt == cutoutTime
+        targetedNodes = getHighCentralityNodes(unmodLinkMatrix, numNodes, centralityType);
+        disp(['Removing following nodes based on ', centralityType, ' centrality'])
+        disp(targetedNodes(:).'); %so row vector
+    end
+    
+    %If we're doing the enemy simulation, send enemy messages:
+    if numEnemies && tt == enemyTime %only if this is nonZero
+        %Find the nearest comm-net node pairs
+        enemyMsgPairs = getCommNetPairs(nodePosEN, numPlat1s, numPlat2s, ...
+            threatsEN, unmodLinkMatrix);
+        nowMsgs = enemyMsgPairs;
+        numMsgs = size(nowMsgs, 1);
+    end
+    if numEnemies && tt > enemyTime %only if this is nonZero
+        %Just keep this going as a conversation
+        %Alternate this every time stamp to simulate a conversation
+        enemyMsgPairs = fliplr(enemyMsgPairs);
+        nowMsgs = enemyMsgPairs;
+        numMsgs = size(nowMsgs, 1);
+    end
+    
     %Induce failures
     linkMatrix1 = zeroRandomFields(linkMatrix1, 1-linkProb1, 1);
     linkMatrix2 = zeroRandomFields(linkMatrix2, 1-linkProb2, 1);
@@ -142,10 +191,10 @@ for tt = 0:simTime
     
     linkMatrix = combineLinks(linkMatrix1, 2*linkMatrix2, 3*linkMatrix3);
     
-    %Now do the centrality shenanigans
+    %Apply the centrality shenanigans
     if testNodeLoss && tt >= cutoutTime
-        linkMatrixOut = removeHighCentrality(linkMatrix>0, numNodes, centralityType);
-        linkMatrix = linkMatrix .* linkMatrixOut; %keep scaling but don't let it affect centrality
+        linkMask = removeHighCentrality(unmodLinkMatrix, targetedNodes);
+        linkMatrix = linkMatrix .* linkMask; %elementwise masking with 1s and 0s
     end
     
     %everyone pings
@@ -154,23 +203,47 @@ for tt = 0:simTime
     
     %Visualize overall Sim
     figure(simFig)
+    [hands, names] = initLegendStuff;
     cla
     hold all
     legNet  = plot(plat1s(:,1), plat1s(:,2), 'ob');
     legComm = plot(plat2s(:,1), plat2s(:,2), 'og', 'markerfacecolor', 'g');
     legGS   = plot(plat3s(:,1), plat3s(:,2), 'ok', 'markerfacecolor', 'k');
-    legUAV   = plot(threats(:,1), threats(:,2), 'or', 'markerfacecolor', 'r');
     legLinks3 = plotLinks(linkMatrix == 3, nodePosEN);
     legLinks = plotLinks(linkMatrix == 1, nodePosEN, 'b');
     legLinks2 = plotLinks(linkMatrix == 2, nodePosEN, 'g');
+    [hands, names] = appendLegendStuff(hands, names, ...
+        [legNet, legComm, legGS, legLinks3, legLinks2, legLinks], ...
+        {'Net Drones', 'Comm Drones', 'Ground Stations', ...
+        'Gnd Links', 'G2S Links', 'Swarm Links'});
+    %And add the complications n stuff
+    if numEnemies && tt >= enemyTime
+        legUAV   = plot(threatsEN(:,1), threatsEN(:,2), 'or', 'markerfacecolor', 'r');
+        [hands, names] = appendLegendStuff(hands, names, legUAV, 'Enemies');
+    end
+        
+    if testNodeLoss && tt >= cutoutTime
+        removed = plot(nodePosEN(targetedNodes, 1), nodePosEN(targetedNodes, 2), 'rx');
+        [hands, names] = appendLegendStuff(hands, names, removed, 'Removed Nodes');
+    end
     
     xlabel('E')
     ylabel('N')
     title([runName, ': t = ', num2str(tt)]);
     xlim(boxSize * [-1, 1])
     ylim(boxSize * [-1, 1])
-    legend([legNet, legComm, legGS, legUAV, legLinks3, legLinks2, legLinks], {'Net Drones', ...
-        'Comm Drones', 'Ground Stations', 'Enemy UAVs', 'Gnd Links', 'G2S Links', 'Swarm Links'});
+    legend(hands, names);
+    
+    % Capture the plot as an image
+    frame = getframe(simFig);
+    im = frame2im(frame);
+    [imind,cm] = rgb2ind(im,256);
+    % Write this out to a pretty gif 
+    if tt == 0
+        imwrite(imind, cm, gifFile, 'gif', 'Loopcount', inf, 'DelayTime', gifDelay);
+    else
+        imwrite(imind, cm, gifFile, 'gif', 'WriteMode', 'append', 'DelayTime', gifDelay);
+    end
     
     %Send all msgs for this timestamp
     for mm = 1:numMsgs
@@ -378,10 +451,14 @@ for tt = 0:simTime
     loadHistoryDSR = [zeros(numPlats, 1), loadHistoryDSR(:, 1:end - 1)];
     
     %Write out linkUsageMatrix to csv - network data
-    writeTimeData(tt, linkUsageABR, abrFile)
-    writeTimeData(tt, linkUsageDSR, dsrFile)
+    writeTimeData(tt, linkMatrix > 0, linkFd) %output binarized link matrix
+    writeTimeData(tt, linkUsageABR, abrFd)
+    writeTimeData(tt, linkUsageDSR, dsrFd)
 end
 %write out loadHistory
 writematrix(loadHistoryABR, [saveDir, 'loadHistoryABR.csv']);
 writematrix(loadHistoryDSR, [saveDir, 'loadHistoryDSR.csv']);
+fclose(linkFd);
+fclose(abrFd);
+fclose(dsrFd);
 

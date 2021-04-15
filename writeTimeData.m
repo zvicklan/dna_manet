@@ -10,10 +10,12 @@ function writeTimeData(timeVal, data, filename)
 % timeVal = 1;
 % data = magic(4);
 % filename = 'test.csv';
-% writeTimeData(timeVal, data, filename)
+% fd = fopen(filename, 'w');
+% writeTimeData(timeVal, data, fd)
 % timeVal = 2;
 % data = data';
 % writeTimeData(timeVal, data, filename)
+% fclose(fd);
 % 
 % History
 % 4/11/2021 ZV created
@@ -37,4 +39,10 @@ agentLinkStrs = getAgentLinkInfo(useLinkTypes * rows, useLinkTypes * cols);
 allData = [agentLinkStrs(:,1), num2cell(rows), agentLinkStrs(:,2), num2cell(cols), ...
     num2cell(dataVec), agentLinkStrs(:,3), num2cell(timeVec)];
 %Write out. We don't need to do anything special to create the file
-writecell(allData, filename, 'WriteMode', 'append');
+if ischar(filename) || isstring(filename)
+    writecell(allData, filename, 'WriteMode', 'append');
+else
+    %write through a file descriptor
+    transposeData = allData.'; %b/c matlab will read down columns
+    fprintf(filename, '%s, %d, %s, %d, %d, %s, %d\n', transposeData{:});
+end

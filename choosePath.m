@@ -38,6 +38,10 @@ acceptablePaths = paths(numOverloads == 0);
 numSteps = numSteps(numOverloads == 0);
 tickScores = tickScores(numOverloads == 0);
 
+if isempty(acceptablePaths)
+    error('%s: All paths overloaded\n', mfilename);
+end
+
 %Find the minimum number of steps
 minPaths = numSteps == min(numSteps);
 acceptablePaths = acceptablePaths(minPaths);

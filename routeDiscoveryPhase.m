@@ -57,4 +57,9 @@ bestPath = [];
 if isempty(goodPaths) %no paths found
     return;
 end
-bestPath = choosePath(goodPaths, remainingBW, tickMatrix, tickThreshold);
+if exist('remainingBW', 'var')
+    bestPath = choosePath(goodPaths, remainingBW, tickMatrix, tickThreshold);
+else
+    %now it's just a finding paths thing
+    bestPath = goodPaths;
+end
