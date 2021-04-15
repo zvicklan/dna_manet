@@ -43,6 +43,16 @@ end
 hold all;
 pathLen = numel(pathVec);
 
+%Error checking on the input
+if pathLen == 0
+    error('%s: Called with no path\n', mfilename);
+elseif pathLen == 1
+    startNode = pathVec(1);
+    startEN = nodePosEN(startNode,:);
+    legendItem = plot(startEN(1), startEN(2), 'rx');
+    return;
+end
+
 startNode = pathVec(1);
 startEN = nodePosEN(startNode,:);
 for ii = 1:pathLen - 1

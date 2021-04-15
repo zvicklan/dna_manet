@@ -47,6 +47,7 @@ bwMatrix = zeros(numNodes, numNodes);
 bestPath = []; %one main change is that we will return the first one found
 %Due to how we're doing it, it'll probably be about the best, but it isn't
 %checked like in ABR
+pathUsesMem = 0;
 
 %Adding vector to track if each node has transmitted. If it has, it doesn't
 %do it again
@@ -78,14 +79,16 @@ while numel(paths) > 0
                 thisNode, dest);
         end
         hasTXed(thisNode) = 1; %mark to not tx again
-        if isempty(bestPath)
+        wouldBePath = [myPath(:); memPath(2:end)];
+        %Check if we want to use this one
+        if isempty(bestPath) || (numel(bestPath) > numel(wouldBePath))
             fprintf('%s: Using existing path from %d to %d. Orig src %d\n', ...
                 mfilename, thisNode, dest, src);
-            wouldBePath = [myPath(:); memPath(2:end)];
             disp(wouldBePath.')
             %check that there are no loops in here
             if numel(wouldBePath) == numel(unique(wouldBePath))
                 bestPath = wouldBePath;
+                pathUsesMem = 0;
             end
         end
     end
@@ -97,8 +100,12 @@ while numel(paths) > 0
         if ~isempty(find(myPath == dest, 1))
             %Made it to destination!
             %If we don't have a solution yet, this is it!
-            if isempty(bestPath)
-                bestPath = [myPath(:); memPath(2:end)];
+            %This is an approximation of hearing back from a bunch of
+            %different paths.
+            if isempty(bestPath) || (numel(myPath) <= numel(bestPath) && ~pathUsesMem)
+                %b/c BFS, should see the shortest found paths first
+                bestPath = myPath;
+                pathUsesMem = 1;
             end
         end
         %retransmit
