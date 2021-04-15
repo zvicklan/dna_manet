@@ -2,19 +2,27 @@
 % ZV 2/26/2021
 % Want to play with a ratio of the velocity and range and how long the
 % connection lasts between two nodes
-
+function netRadSim(testNodeLoss, centralityType, runName)
 % Make the sim consistent
 rng('default');
 % close all;
-clear;
-clc
+% clear;
+% clc
 
 %Sim setup
 simTime = 10; %seconds?
-debugMode = 1;
+debugMode = 0;
+cutoutTime = 40;
 
 %Save setup
-saveDir = '..\saveData\';
+if ~exist('runName', 'var')
+    runName = 'test';
+end
+saveDir = ['..\saveData\', runName, '\'];
+if ~exist(saveDir, 'dir')
+    mkdir(saveDir);
+end
+
 abrFile = [saveDir, 'abrlinks.csv'];
 dsrFile = [saveDir, 'dsrlinks.csv'];
 
@@ -35,11 +43,11 @@ numPlat3s = 2;
 numPlats = numPlat1s + numPlat2s + numPlat3s;
 vel1 = 10;           %Speeds
 vel2 = 5;
-vel3 = 0;   
+vel3 = 0;
 maxBW1 = 50e3;      %Bandwidths
 maxBW2 = 200e3;
 maxBW3 = 500e3;
-maxBWVec = [maxBW1 * ones(numPlat1s, 1); 
+maxBWVec = [maxBW1 * ones(numPlat1s, 1);
     maxBW2 * ones(numPlat2s, 1); ...
     maxBW3 * ones(numPlat3s, 1)]; %total bytes?
 stopPerc1 = .1;     %Prob of not moving
@@ -69,7 +77,7 @@ linkProb3 = 1;
 
 %Set up the messages to send (same for all routing strategies)
 numConvos = 5;
-newMsgsPerSec = 5; 
+newMsgsPerSec = 5;
 numMsgs = newMsgsPerSec + numConvos;
 totalMsgs = (simTime + 1) * numMsgs; %because counting 0 and max
 convoMsgPairs = getSrcDestPairs(numPlats, numConvos);
@@ -110,7 +118,7 @@ for tt = 0:simTime
     newMsgs = newMsgPairs(tt*newMsgsPerSec + 1 : (tt+1)*newMsgsPerSec, :);
     nowMsgs = [convoMsgPairs; newMsgs];
     %Alternate this every time stamp to simulate a conversation
-    convoMsgPairs = fliplr(convoMsgPairs); 
+    convoMsgPairs = fliplr(convoMsgPairs);
     
     if tt == 0 %no load history
         remainingBW = maxBWVec;
@@ -132,6 +140,11 @@ for tt = 0:simTime
     linkMatrix3 = zeroRandomFields(linkMatrix3, 1-linkProb3, 1);
     
     linkMatrix = combineLinks(linkMatrix1, 2*linkMatrix2, 3*linkMatrix3);
+    
+    %Now do the centrality shenanigans
+    if testNodeLoss && tt >= cutoutTime
+        linkMatrix = removeHighCentrality(linkMatrix, numNodes, centralityType);
+    end
     
     %everyone pings
     theseTicks = double(linkMatrix > 0);
@@ -171,10 +184,10 @@ for tt = 0:simTime
         %First, we need to check if we have this path
         dsrMemPath = pathMemArr{src, dest};
         inMemDSR(msgInd) = ~isempty(dsrMemPath);
-        [hasRoute, inMemABR(msgInd), abrMemPath] = readRouteABR(src, dest, abrPathMem);
+        [~, inMemABR(msgInd), abrMemPath] = readRouteABR(src, dest, abrPathMem);
         
         %%%%%%%%%%%%%%%        First, ABR Stuff
-        if inMemABR(msgInd) 
+        if inMemABR(msgInd)
             %Now check against links
             [memSuccessABR(msgInd), usedPathABR, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
                 linkMatrix, abrMemPath);
@@ -197,15 +210,15 @@ for tt = 0:simTime
                     tt, mm, src, dest, msgSuccessABR(msgInd));
                 
                 %And save it so all nodes have memory
-                if msgSuccessABR(msgInd)                    
+                if msgSuccessABR(msgInd)
                     %Save the ABR way
                     [totalTx, totalRx, bwMatrix, abrPathMem] = ...
                         saveNewPathABR(abrPathMem, usedPathABR, msgSize);
                     %Update each node's BW usage and BW over each link
                     loadHistoryABR(:,1) = loadHistoryABR(:,1) + totalTx + totalRx;
                     linkUsageABRmsg = linkUsageABRmsg + bwMatrix;
-                end 
-            else 
+                end
+            else
                 %Write this as our success
                 msgSuccessABR(msgInd) = memSuccessABR(msgInd);
             end
@@ -223,7 +236,7 @@ for tt = 0:simTime
             [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryPhase(src, dest, ...
                 linkMatrix, remainingBW, abrTickTable, msgSize);
             msgSuccessABR(msgInd) = ~isempty(bestPath);
-                
+            
             fprintf('t=%d,m=%d. Route discovery for %d to %d. Success %d\n', ...
                 tt, mm, src, dest, msgSuccessABR(msgInd));
             %Update each node's BW usage and BW over each link
@@ -252,7 +265,7 @@ for tt = 0:simTime
             if mm > numConvos
                 %Just check it isn't also a convo first
                 if ~any(ismember(convoMsgPairs, [src, dest], 'rows')) && ...
-                    ~any(ismember(convoMsgPairs, [dest, src], 'rows'))
+                        ~any(ismember(convoMsgPairs, [dest, src], 'rows'))
                     [totalTx, totalRx, bwMatrix, abrPathMem] = routeDeletionPhase(src, dest, ...
                         linkMatrix, abrPathMem, msgSize);
                     %Update each node's BW usage and BW over each link
@@ -275,7 +288,7 @@ for tt = 0:simTime
             linkUsageDSRmsg = linkUsageDSRmsg + bwMatrix;
             if ~memSuccessDSR(msgInd)
                 %Report broken path
-                pathMemArr = removePath(pathMemArr, dsrMemPath, usedPathDSR); 
+                pathMemArr = removePath(pathMemArr, dsrMemPath, usedPathDSR);
             else
                 msgSuccessDSR(msgInd) = memSuccessDSR(msgInd);
             end
@@ -298,7 +311,7 @@ for tt = 0:simTime
                 %Update each node's BW usage and BW over each link
                 loadHistoryDSR(:,1) = loadHistoryDSR(:,1) + totalTx + totalRx;
                 linkUsageDSRmsg = linkUsageDSRmsg + bwMatrix;
-
+                
                 if ~msgSuccessDSR(msgInd)
                     %No path found
                     usedPathDSR = [];
@@ -323,7 +336,7 @@ for tt = 0:simTime
                     disp(newPath(:).');
                     disp(usedPathDSR(:).');
                     
-                    pathMemArr = removePath(pathMemArr, newPath, usedPathDSR); 
+                    pathMemArr = removePath(pathMemArr, newPath, usedPathDSR);
                     %We aren't removing the path here b/c we want to see
                     %what it looked like
                     continue;
@@ -345,7 +358,7 @@ for tt = 0:simTime
     end
     
     %Add ticks as well
-    linkUsageABR = linkUsageABR + tickSize*theseTicks;  
+    linkUsageABR = linkUsageABR + tickSize*theseTicks;
     
     
     %And update
@@ -369,4 +382,4 @@ end
 %write out loadHistory
 writematrix(loadHistoryABR, [saveDir, 'loadHistoryABR.csv']);
 writematrix(loadHistoryDSR, [saveDir, 'loadHistoryDSR.csv']);
-    
+
