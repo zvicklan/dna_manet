@@ -92,8 +92,8 @@ while numel(paths) > 0
             % 3. we're using less memory-based steps than the current path
             if isempty(bestPath) || (numel(bestPath) > numel(wouldBePath)) || ...
                     (numel(bestPath) == numel(wouldBePath) && numMemSteps > memLen)
-                fprintf('%s: Using existing path from %d to %d. Orig src %d\n', ...
-                    mfilename, thisNode, dest, src);
+%                 fprintf('%s: Using existing path from %d to %d. Orig src %d\n', ...
+%                     mfilename, thisNode, dest, src);
                 disp(wouldBePath.')
                 %check that there are no loops in here
                 if numel(wouldBePath) == numel(unique(wouldBePath))

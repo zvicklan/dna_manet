@@ -10,9 +10,10 @@ rng('default');
 % clc
 
 %Sim setup
-simTime = 10; %seconds?
+simTime = 100; %seconds?
 debugMode = 0;
 cutoutTime = 40;
+numNodes = 3;
 
 %Save setup
 if ~exist('runName', 'var')
@@ -143,7 +144,8 @@ for tt = 0:simTime
     
     %Now do the centrality shenanigans
     if testNodeLoss && tt >= cutoutTime
-        linkMatrix = removeHighCentrality(linkMatrix, numNodes, centralityType);
+        linkMatrixOut = removeHighCentrality(linkMatrix>0, numNodes, centralityType);
+        linkMatrix = linkMatrix .* linkMatrixOut; %keep scaling but don't let it affect centrality
     end
     
     %everyone pings
@@ -164,7 +166,7 @@ for tt = 0:simTime
     
     xlabel('E')
     ylabel('N')
-    title(['t = ', num2str(tt)]);
+    title([runName, ': t = ', num2str(tt)]);
     xlim(boxSize * [-1, 1])
     ylim(boxSize * [-1, 1])
     legend([legNet, legComm, legGS, legUAV, legLinks3, legLinks2, legLinks], {'Net Drones', ...
@@ -372,8 +374,8 @@ for tt = 0:simTime
     vel3s = genRandVelsStop(numPlat3s, stopPerc3, 0, vel3);
     
     %Update radio usage - shift right, increment total counter
-    loadHistoryABR = [zeros(numPlats, 1), loadHistoryABR(:, 1:loadMemLength - 1)];
-    loadHistoryDSR = [zeros(numPlats, 1), loadHistoryDSR(:, 1:loadMemLength - 1)];
+    loadHistoryABR = [zeros(numPlats, 1), loadHistoryABR(:, 1:end - 1)];
+    loadHistoryDSR = [zeros(numPlats, 1), loadHistoryDSR(:, 1:end - 1)];
     
     %Write out linkUsageMatrix to csv - network data
     writeTimeData(tt, linkUsageABR, abrFile)

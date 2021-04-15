@@ -18,7 +18,7 @@ function outMatrix = removeHighCentrality(matrix, numNodes, centTypeStr)
 % First, we make our graph
 myGraph = graph(matrix);
 centScores = centrality(myGraph, centTypeStr);
-[~, inds] = sort(centScores); %pretty sure I just want inds though
+[~, inds] = sort(centScores, 'descend'); %pretty sure I just want inds though
 
 %Make the output
 outMatrix = matrix;
