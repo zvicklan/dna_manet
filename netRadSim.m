@@ -265,6 +265,7 @@ for tt = 0:simTime
         totalBWABR(msgInd) = sum(loadHistoryABR(:,1), 'all');
         %%%%%%%%%%%%%%%%%%% DSR stuff
         dsrTry = 0;
+        allowMem = 1; %allow discovery to use memory
         %If we have one, attempt to use the path
         if inMemDSR(msgInd)
             [memSuccessDSR(msgInd), usedPathDSR, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
@@ -287,8 +288,12 @@ for tt = 0:simTime
             numTriesDSR = 3;
             for dsrTry = 1:numTriesDSR
                 %Get a path
+                if dsrTry == numTriesDSR
+                    %Get serious. Even if it's expensive
+                    allowMem = 0;
+                end
                 [newPath, totalTx, totalRx, bwMatrix] = routeDiscoveryDSR(src, dest, ...
-                    linkMatrix, pathMemArr, msgSize);
+                    linkMatrix, pathMemArr,allowMem, msgSize);
                 msgSuccessDSR(msgInd) = ~isempty(newPath);
                 %Update each node's BW usage and BW over each link
                 loadHistoryDSR(:,1) = loadHistoryDSR(:,1) + totalTx + totalRx;

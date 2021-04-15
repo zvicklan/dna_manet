@@ -1,5 +1,5 @@
 function [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryDSR(src, dest, ...
-                linkMatrix, pathMemArr, msgSize)
+                linkMatrix, pathMemArr, allowMem, msgSize)
 % Performs a route discover from src to dest over links in linkMatrix
 % Uses optimizations of the DSR algorithm to allow for using existing paths
 % in the DSR memory
@@ -11,6 +11,8 @@ function [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryDSR(src, dest, .
 %   linkMatrix - nxn link matrix (non-zero is link). n must be > src & dest
 %   pathMemArr  - numNodes x numNodes cell arr - if each entry is empty,
 %       then there is (supposed to be) a path there
+%   allowMem    - indicates that you can use memory. Otherwise, just do old
+%       fashioned way
 % 
 % Output
 %   bestPath    - mx1 array of the path
@@ -48,6 +50,7 @@ bestPath = []; %one main change is that we will return the first one found
 %Due to how we're doing it, it'll probably be about the best, but it isn't
 %checked like in ABR
 pathUsesMem = 0;
+numMemSteps = 0;
 
 %Adding vector to track if each node has transmitted. If it has, it doesn't
 %do it again
@@ -68,27 +71,36 @@ while numel(paths) > 0
         paths = paths(2:end);
     end
     
-    %Check for a hit in the path memory
-    memPath = pathMemArr{thisNode, dest};
-    memPath = memPath(:); %ensure column vector for appending
-    if ~isempty(memPath)
-        if memPath(end) ~= dest
-            disp('Bad path... bad!')
-            disp(memPath)
-            error('%s: pathMemArr{%d,%d} did not arrive to dest\n', mfilename, ...
-                thisNode, dest);
-        end
-        hasTXed(thisNode) = 1; %mark to not tx again
-        wouldBePath = [myPath(:); memPath(2:end)];
-        %Check if we want to use this one
-        if isempty(bestPath) || (numel(bestPath) > numel(wouldBePath))
-            fprintf('%s: Using existing path from %d to %d. Orig src %d\n', ...
-                mfilename, thisNode, dest, src);
-            disp(wouldBePath.')
-            %check that there are no loops in here
-            if numel(wouldBePath) == numel(unique(wouldBePath))
-                bestPath = wouldBePath;
-                pathUsesMem = 0;
+    % If allowed, check for a hit in the path memory
+    if allowMem
+        memPath = pathMemArr{thisNode, dest};
+        memPath = memPath(:); %ensure column vector for appending
+        if ~isempty(memPath)
+            if memPath(end) ~= dest
+                disp('Bad path... bad!')
+                disp(memPath)
+                error('%s: pathMemArr{%d,%d} did not arrive to dest\n', mfilename, ...
+                    thisNode, dest);
+            end
+            hasTXed(thisNode) = 1; %mark to not tx again
+            wouldBePath = [myPath(:); memPath(2:end)];
+            memLen = numel(memPath(2:end));
+            %Check if we want to use this one
+            %3 cases
+            % 1. no current path
+            % 2. we're shorter than the current path
+            % 3. we're using less memory-based steps than the current path
+            if isempty(bestPath) || (numel(bestPath) > numel(wouldBePath)) || ...
+                    (numel(bestPath) == numel(wouldBePath) && numMemSteps > memLen)
+                fprintf('%s: Using existing path from %d to %d. Orig src %d\n', ...
+                    mfilename, thisNode, dest, src);
+                disp(wouldBePath.')
+                %check that there are no loops in here
+                if numel(wouldBePath) == numel(unique(wouldBePath))
+                    bestPath = wouldBePath;
+                    pathUsesMem = 0;
+                    numMemSteps = memLen;
+                end
             end
         end
     end
