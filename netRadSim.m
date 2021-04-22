@@ -5,7 +5,7 @@
 function netRadSim(allowMotion, numRemoveNodes, centralityType, numEnemies, runName)
 % Make the sim consistent
 rng('default');
-% close all;
+close all;
 % clear;
 % clc
 fclose('all');
