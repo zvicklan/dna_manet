@@ -17,7 +17,7 @@ for nn = 1:numel(numRemoveNodes)
     for ii = 1:numel(centTypes)
         pack; %I think I'm having memory issues, so we'll try adding this
         centralityType = centTypes{ii};
-        runName = sprintf('%s_%d', centralityType, numRemoveNodes(nn));
+        runName = sprintf('%s-%d', centralityType, numRemoveNodes(nn));
         netRadSim(allowMotion, numRemoveNodes(nn), centralityType, numEnemies, runName);
     end
 end
