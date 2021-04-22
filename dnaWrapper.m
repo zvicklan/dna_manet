@@ -3,26 +3,28 @@
 
 %Create the base dataset
 allowMotion = 1;
-testNodeLoss = 0;
+numRemoveNodes = 0;
 centralityType = 'none';
 numEnemies = 0;
 runName = 'Control';
-netRadSim(allowMotion, testNodeLoss, centralityType, numEnemies, runName);
+netRadSim(allowMotion, numRemoveNodes, centralityType, numEnemies, runName);
 
-%Then the removing nodes type
-allowMotion = 0;
-testNodeLoss = 1;
+%% Then the removing nodes type
+allowMotion = 1;
+numRemoveNodes = [3, 5];
 centTypes = {'Degree', 'Betweenness', 'Eigenvector', 'Closeness'};
-for ii = 1:numel(centTypes)
-    pack; %I think I'm having memory issues, so we'll try adding this
-    centralityType = centTypes{ii};
-    runName = centralityType;
-    netRadSim(allowMotion, testNodeLoss, centralityType, numEnemies, runName);
+for nn = 1:numel(numRemoveNodes)
+    for ii = 1:numel(centTypes)
+        pack; %I think I'm having memory issues, so we'll try adding this
+        centralityType = centTypes{ii};
+        runName = sprintf('%s_%d', centralityType, numRemoveNodes(nn));
+        netRadSim(allowMotion, numRemoveNodes(nn), centralityType, numEnemies, runName);
+    end
 end
     
-%Then, enemy
-numEnemies = 5;
-testNodeLoss = 0;
+%% Then, enemy
+allowMotion = 1;
+numRemoveNodes = 0;
 centralityType = 'none';
-allowMotion = 0;
-netRadSim(allowMotion, testNodeLoss, centralityType, numEnemies, 'Enemies')
+numEnemies = 10;
+netRadSim(allowMotion, numRemoveNodes, centralityType, numEnemies, 'Enemies')

@@ -2,7 +2,7 @@
 % ZV 2/26/2021
 % Want to play with a ratio of the velocity and range and how long the
 % connection lasts between two nodes
-function netRadSim(allowMotion, testNodeLoss, centralityType, numEnemies, runName)
+function netRadSim(allowMotion, numRemoveNodes, centralityType, numEnemies, runName)
 % Make the sim consistent
 rng('default');
 % close all;
@@ -13,8 +13,7 @@ fclose('all');
 simTime = 100; %seconds?
 debugMode = 0;
 cutoutTime = 40;
-enemyTime = 60;
-numNodes = 3;
+enemyTime = 40;
 gifDelay = 0.25; % this one really is seconds
 
 %Save setup
@@ -24,6 +23,12 @@ end
 saveDir = ['..\saveData\', runName, '\'];
 if ~exist(saveDir, 'dir')
     mkdir(saveDir);
+end
+if debugMode
+    debugDir = [saveDir, 'debug\'];
+    if ~exist(debugDir, 'dir')
+        mkdir(debugDir);
+    end
 end
 
 gifFile = [saveDir, 'simGif.gif'];
@@ -55,8 +60,8 @@ numPlat3s = 2;
 numPlats = numPlat1s + numPlat2s + numPlat3s;
 %Set speeds (allow turning off motion)
 if allowMotion
-    vel1 = 10;           %Speeds
-    vel2 = 5;
+    vel1 = 5;           %Speeds
+    vel2 = 3;
     vel3 = 0;
 else
     vel1 = 0;           %Speeds
@@ -77,8 +82,8 @@ pathMemArr = cell(numPlats, numPlats); %memory for all nodes path to all
 %create starting spots
 plat1s = boxSize * (rand(numPlat1s, 2) - .5);
 angles = 360/5 * (0:4);
-plat2s = genENSpots(angles, 50);
-plat3s = [ -10 0; 10 0];
+plat2s = genENSpots(angles, 80);
+plat3s = [ -50 0; 50 0];
 
 %Set up enemy stuff
 if numEnemies
@@ -93,7 +98,7 @@ vel3s = genRandVelsStop(numPlat3s, stopPerc3, 0, vel3);
 
 %Link setup (3 types (1-1,2; 2-2,3; 3-3)
 linkRadius1 = 50;
-linkRadius2 = 100;
+linkRadius2 = 200;
 linkRadius3 = inf;
 linkProb1 = 0.8;
 linkProb2 = 0.95;
@@ -108,15 +113,15 @@ convoMsgPairs = getSrcDestPairs(numPlats, numConvos);
 newMsgPairs = getSrcDestPairs(numPlats, totalMsgs);
 
 %Success logging info
-msgSuccessABR = zeros(totalMsgs, 1);
-inMemABR = zeros(totalMsgs, 1);
-memSuccessABR = zeros(totalMsgs, 1);
-totalBWABR = zeros(totalMsgs, 1);
+msgSuccessABR   = zeros(simTime + 1, numMsgs);
+inMemABR        = zeros(simTime + 1, numMsgs);
+memSuccessABR   = zeros(simTime + 1, numMsgs);
+totalBWABR      = zeros(simTime + 1, numMsgs);
 
-msgSuccessDSR = zeros(totalMsgs, 1);
-inMemDSR = zeros(totalMsgs, 1);
-memSuccessDSR = zeros(totalMsgs, 1);
-totalBWDSR = zeros(totalMsgs, 1);
+msgSuccessDSR   = zeros(simTime + 1, numMsgs);
+inMemDSR        = zeros(simTime + 1, numMsgs);
+memSuccessDSR   = zeros(simTime + 1, numMsgs);
+totalBWDSR      = zeros(simTime + 1, numMsgs);
 
 loadMemLength = 10;
 loadHistoryABR = zeros(numPlats, simTime + 1);
@@ -162,8 +167,8 @@ for tt = 0:simTime
     unmodLinkMatrix = combineLinks(linkMatrix1, linkMatrix2, linkMatrix3);
     
     %Now do the centrality shenanigans
-    if testNodeLoss && tt == cutoutTime
-        targetedNodes = getHighCentralityNodes(unmodLinkMatrix, numNodes, centralityType);
+    if numRemoveNodes && tt == cutoutTime
+        targetedNodes = getHighCentralityNodes(unmodLinkMatrix, numRemoveNodes, centralityType);
         disp(['Removing following nodes based on ', centralityType, ' centrality'])
         disp(targetedNodes(:).'); %so row vector
     end
@@ -192,7 +197,7 @@ for tt = 0:simTime
     linkMatrix = combineLinks(linkMatrix1, 2*linkMatrix2, 3*linkMatrix3);
     
     %Apply the centrality shenanigans
-    if testNodeLoss && tt >= cutoutTime
+    if numRemoveNodes && tt >= cutoutTime
         linkMask = removeHighCentrality(unmodLinkMatrix, targetedNodes);
         linkMatrix = linkMatrix .* linkMask; %elementwise masking with 1s and 0s
     end
@@ -222,7 +227,7 @@ for tt = 0:simTime
         [hands, names] = appendLegendStuff(hands, names, legUAV, 'Enemies');
     end
         
-    if testNodeLoss && tt >= cutoutTime
+    if numRemoveNodes && tt >= cutoutTime
         removed = plot(nodePosEN(targetedNodes, 1), nodePosEN(targetedNodes, 2), 'rx');
         [hands, names] = appendLegendStuff(hands, names, removed, 'Removed Nodes');
     end
@@ -258,34 +263,34 @@ for tt = 0:simTime
         
         %First, we need to check if we have this path
         dsrMemPath = pathMemArr{src, dest};
-        inMemDSR(msgInd) = ~isempty(dsrMemPath);
-        [~, inMemABR(msgInd), abrMemPath] = readRouteABR(src, dest, abrPathMem);
+        inMemDSR(tt+1,mm) = ~isempty(dsrMemPath);
+        [~, inMemABR(tt+1,mm), abrMemPath] = readRouteABR(src, dest, abrPathMem);
         
         %%%%%%%%%%%%%%%        First, ABR Stuff
-        if inMemABR(msgInd)
+        if inMemABR(tt+1,mm)
             %Now check against links
-            [memSuccessABR(msgInd), usedPathABR, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
+            [memSuccessABR(tt+1,mm), usedPathABR, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
                 linkMatrix, abrMemPath);
             %Update each node's BW usage and BW over each link
             loadHistoryABR(:,1) = loadHistoryABR(:,1) + totalTx + totalRx;
             linkUsageABRmsg = linkUsageABRmsg + bwMatrix;
             
             fprintf('t=%d,m=%d. Using existing route for %d to %d. Success %d\n', ...
-                tt, mm, src, dest, memSuccessABR(msgInd));
-            if ~memSuccessABR(msgInd)
+                tt, mm, src, dest, memSuccessABR(tt+1,mm));
+            if ~memSuccessABR(tt+1,mm)
                 %Report broken path
                 [usedPathABR, totalTx, totalRx, bwMatrix, abrPathMem] = ...
                     fixPathABR(abrPathMem, linkMatrix, remainingBW, abrTickTable, ...
                     src, dest, usedPathABR(end), msgSize);
-                msgSuccessABR(msgInd) = ~isempty(usedPathABR);
+                msgSuccessABR(tt+1,mm) = ~isempty(usedPathABR);
                 %Update each node's BW usage and BW over each link
                 loadHistoryABR(:,1) = loadHistoryABR(:,1) + totalTx + totalRx;
                 linkUsageABRmsg = linkUsageABRmsg + bwMatrix;
                 fprintf('t=%d,m=%d. Existing route broken for %d to %d. Success %d\n', ...
-                    tt, mm, src, dest, msgSuccessABR(msgInd));
+                    tt, mm, src, dest, msgSuccessABR(tt+1,mm));
                 
                 %And save it so all nodes have memory
-                if msgSuccessABR(msgInd)
+                if msgSuccessABR(tt+1,mm)
                     %Save the ABR way
                     [totalTx, totalRx, bwMatrix, abrPathMem] = ...
                         saveNewPathABR(abrPathMem, usedPathABR, msgSize);
@@ -295,25 +300,26 @@ for tt = 0:simTime
                 end
             else
                 %Write this as our success
-                msgSuccessABR(msgInd) = memSuccessABR(msgInd);
+                msgSuccessABR(tt+1,mm) = memSuccessABR(tt+1,mm);
             end
             %super cool plotting
-            if msgSuccessABR(msgInd) && debugMode
+            if msgSuccessABR(tt+1,mm) && debugMode
                 legendHandle = debugPlot(debugFigABR, msgInd, linkMatrix, linkUsageABRmsg, ...
                     nodePosEN, src, dest, usedPathABR, plat1s, plat2s, plat3s, ...
-                    boxSize, tt, msgSuccessABR(msgInd), legendHandle, 'ABR');
+                    boxSize, tt, msgSuccessABR(tt+1,mm), 0, 'ABR');
+                saveas(debugFigABR, sprintf('%sabr_%03d', debugDir, msgInd), 'png');
             end
         end
         
         % ABR route Discovery
-        if ~msgSuccessABR(msgInd)
+        if ~msgSuccessABR(tt+1,mm)
             %If we need a new route, we find it
             [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryPhase(src, dest, ...
                 linkMatrix, remainingBW, abrTickTable, msgSize);
-            msgSuccessABR(msgInd) = ~isempty(bestPath);
+            msgSuccessABR(tt+1,mm) = ~isempty(bestPath);
             
             fprintf('t=%d,m=%d. Route discovery for %d to %d. Success %d\n', ...
-                tt, mm, src, dest, msgSuccessABR(msgInd));
+                tt, mm, src, dest, msgSuccessABR(tt+1,mm));
             %Update each node's BW usage and BW over each link
             loadHistoryABR(:,1) = loadHistoryABR(:,1) + totalTx + totalRx;
             linkUsageABRmsg = linkUsageABRmsg + bwMatrix;
@@ -323,11 +329,12 @@ for tt = 0:simTime
             if debugMode
                 legendHandle = debugPlot(debugFigABR, msgInd, linkMatrix, linkUsageABRmsg, ...
                     nodePosEN, src, dest, bestPath, plat1s, plat2s, plat3s, ...
-                    boxSize, tt, msgSuccessABR(msgInd), legendHandle, 'ABR');
+                    boxSize, tt, msgSuccessABR(tt+1,mm), 0, 'ABR');
+                saveas(debugFigABR, sprintf('%sabr_%03d', debugDir, msgInd), 'png');
             end
             
             %And save it so all nodes have memory
-            if msgSuccessABR(msgInd)
+            if msgSuccessABR(tt+1,mm)
                 %Save the ABR way
                 [totalTx, totalRx, bwMatrix, abrPathMem] = ...
                     saveNewPathABR(abrPathMem, bestPath, msgSize);
@@ -350,28 +357,28 @@ for tt = 0:simTime
             end
         end
         linkUsageABR = linkUsageABR + linkUsageABRmsg;
-        totalBWABR(msgInd) = sum(loadHistoryABR(:,1), 'all');
+        totalBWABR(tt+1,mm) = sum(loadHistoryABR(:,1), 'all');
         %%%%%%%%%%%%%%%%%%% DSR stuff
         dsrTry = 0;
         allowMem = 1; %allow discovery to use memory
         %If we have one, attempt to use the path
-        if inMemDSR(msgInd)
-            [memSuccessDSR(msgInd), usedPathDSR, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
+        if inMemDSR(tt+1,mm)
+            [memSuccessDSR(tt+1,mm), usedPathDSR, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
                 linkMatrix, dsrMemPath);
             %Update each node's BW usage and BW over each link
             loadHistoryDSR(:,1) = loadHistoryDSR(:,1) + totalTx + totalRx;
             linkUsageDSRmsg = linkUsageDSRmsg + bwMatrix;
-            if ~memSuccessDSR(msgInd)
+            if ~memSuccessDSR(tt+1,mm)
                 %Report broken path
                 pathMemArr = removePath(pathMemArr, dsrMemPath, usedPathDSR);
             else
-                msgSuccessDSR(msgInd) = memSuccessDSR(msgInd);
+                msgSuccessDSR(tt+1,mm) = memSuccessDSR(tt+1,mm);
             end
         else
             usedPathDSR = dsrMemPath;
         end
         %If we couldn't find one or it was bad find a new route
-        if ~memSuccessDSR(msgInd)
+        if ~memSuccessDSR(tt+1,mm)
             %Find new path for DSR (for now, same algorithm)
             numTriesDSR = 3;
             for dsrTry = 1:numTriesDSR
@@ -382,26 +389,26 @@ for tt = 0:simTime
                 end
                 [newPath, totalTx, totalRx, bwMatrix] = routeDiscoveryDSR(src, dest, ...
                     linkMatrix, pathMemArr,allowMem, msgSize);
-                msgSuccessDSR(msgInd) = ~isempty(newPath);
+                msgSuccessDSR(tt+1,mm) = ~isempty(newPath);
                 %Update each node's BW usage and BW over each link
                 loadHistoryDSR(:,1) = loadHistoryDSR(:,1) + totalTx + totalRx;
                 linkUsageDSRmsg = linkUsageDSRmsg + bwMatrix;
                 
-                if ~msgSuccessDSR(msgInd)
+                if ~msgSuccessDSR(tt+1,mm)
                     %No path found
                     usedPathDSR = [];
                     break;
                 end
                 
                 %Else, try to use the path
-                [msgSuccessDSR(msgInd), usedPathDSR, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
+                [msgSuccessDSR(tt+1,mm), usedPathDSR, totalTx, totalRx, bwMatrix] = useRoute(src, dest, ...
                     linkMatrix, newPath);
                 %Update each node's BW usage and BW over each link
                 loadHistoryDSR(:,1) = loadHistoryDSR(:,1) + totalTx + totalRx;
                 linkUsageDSRmsg = linkUsageDSRmsg + bwMatrix;
                 
-                if msgSuccessDSR(msgInd)
-                    msgSuccessDSR(msgInd) = dsrTry; %store the # tries
+                if msgSuccessDSR(tt+1,mm)
+                    msgSuccessDSR(tt+1,mm) = dsrTry; %store the # tries
                     pathMemArr = saveNewPath(pathMemArr, newPath);
                     break; %found it, so stop
                 else
@@ -418,18 +425,19 @@ for tt = 0:simTime
                 end
             end
             fprintf('t=%d,m=%d. DSR route discovery for %d to %d. Success %d on try %d\n', ...
-                tt, mm, src, dest, msgSuccessDSR(msgInd), dsrTry);
+                tt, mm, src, dest, msgSuccessDSR(tt+1,mm), dsrTry);
         end
         if debugMode
             %super cool plotting
             legendHandle = debugPlot(debugFigDSR, msgInd, linkMatrix, linkUsageDSRmsg, ...
                 nodePosEN, src, dest, usedPathDSR, plat1s, plat2s, plat3s, ...
-                boxSize, tt, msgSuccessDSR(msgInd), legendHandle, 'DSR');
+                boxSize, tt, msgSuccessDSR(tt+1,mm), 0, 'DSR');
+            saveas(debugFigDSR, sprintf('%sdsr_%03d', debugDir, msgInd), 'png');
         end
         %Add the total link usage for this message to the total for the
         %time period
         linkUsageDSR = linkUsageDSR + linkUsageDSRmsg;
-        totalBWDSR(msgInd) = sum(loadHistoryDSR(:,1), 'all');
+        totalBWDSR(tt+1,mm) = sum(loadHistoryDSR(:,1), 'all');
     end
     
     %Add ticks as well
@@ -455,9 +463,31 @@ for tt = 0:simTime
     writeTimeData(tt, linkUsageABR, abrFd)
     writeTimeData(tt, linkUsageDSR, dsrFd)
 end
+%Plot out the success rate and totalBW
+msgFig = figure;
+hold all
+cLeg = plot([0, simTime], [1, 1], 'k:');
+aLeg = plot(0:simTime, mean(msgSuccessABR, 2), 'b');
+bLeg = plot(0:simTime, mean(msgSuccessDSR > 0, 2), 'g'); %b/c it also counts the try
+xlabel('Time Period');
+ylabel('Msg Success Rate');
+legend([aLeg, bLeg, cLeg], {'ABR Msg Success', 'DSR Msg Success', '100%'})
+saveas(msgFig, [saveDir, 'msgSuccess'], 'png');
+
+bwFig = figure;
+hold all
+plot(0:simTime, sum(totalBWABR, 2)/1000, 'b')
+plot(0:simTime, sum(totalBWDSR, 2)/1000, 'g')
+plot([0, simTime], [1, 1], 'k')
+xlabel('Time Period');
+ylabel('Bandwidth Utilization (KB)');
+legend('ABR Bandwidth', 'DSR Bandwidth', '100%')
+saveas(bwFig, [saveDir, 'bandwidthUsage'], 'png');
+
 %write out loadHistory
 writematrix(loadHistoryABR, [saveDir, 'loadHistoryABR.csv']);
 writematrix(loadHistoryDSR, [saveDir, 'loadHistoryDSR.csv']);
+save([saveDir, 'allVars']);
 fclose(linkFd);
 fclose(abrFd);
 fclose(dsrFd);
