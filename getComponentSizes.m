@@ -23,5 +23,5 @@ padLen = numComponents - numel(compSizes);
 if padLen > 0
     compSizes = [compSizes(:); zeros(padLen, 1)].';
 else
-    compSizes = compSizes(1:padLen);
+    compSizes = compSizes(1:numComponents);
 end
