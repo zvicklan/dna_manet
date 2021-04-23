@@ -133,12 +133,18 @@ tickSize = 50;
 msgSize = 500;
 abrPathMem = createMemStruct(numPlats); %ABR memory for paths
 
+%Network info
+numComponents = 5;
+compSizeHist = zeros(simTime + 1, numComponents);
+
 %plot everybody
 simFig = 1;
 debugFigABR = 2;
 debugFigDSR = 3;
 msgFig = 4;
 bwFig = 5;
+componentFig = 6;
+
 legendHandle = 0;
 for tt = 0:simTime
     %Get state information for this time stamp
@@ -236,7 +242,7 @@ for tt = 0:simTime
     
     xlabel('E')
     ylabel('N')
-    title([runName, ': t = ', num2str(tt)]);
+    title([runName, ': t = ', num2str(tt)], 'Fontsize', 15);
     xlim(boxSize * [-1, 1])
     ylim(boxSize * [-1, 1])
     legend(hands, names);
@@ -460,6 +466,9 @@ for tt = 0:simTime
     loadHistoryABR = [zeros(numPlats, 1), loadHistoryABR(:, 1:end - 1)];
     loadHistoryDSR = [zeros(numPlats, 1), loadHistoryDSR(:, 1:end - 1)];
     
+    %Capture component counts
+    compSizeHist(tt+1,:) = getComponentSizes(linkMatrix, numComponents);
+    
     %Write out linkUsageMatrix to csv - network data
     writeTimeData(tt, linkMatrix > 0, linkFd) %output binarized link matrix
     writeTimeData(tt, linkUsageABR, abrFd)
@@ -474,7 +483,7 @@ bLeg = plot(0:simTime, mean(msgSuccessDSR > 0, 2), 'g'); %b/c it also counts the
 xlabel('Time Period');
 ylabel('Msg Success Rate');
 ylim([0, 1]);
-title(['Msg Success Rate: ', runName])
+title(['Msg Success Rate: ', runName], 'Fontsize', 15)
 legend([aLeg, bLeg, cLeg], {'ABR Msg Success', 'DSR Msg Success', '100%'})
 saveas(msgFig, [saveDir, 'msgSuccess'], 'png');
 
@@ -484,9 +493,28 @@ plot(0:simTime, sum(totalBWABR, 2)/1000, 'b')
 plot(0:simTime, sum(totalBWDSR, 2)/1000, 'g')
 xlabel('Time Period');
 ylabel('Bandwidth Utilization (KB)');
-title(['Bandwidth Utilization: ', runName])
+title(['Bandwidth Utilization: ', runName], 'Fontsize', 15)
 legend('ABR Bandwidth', 'DSR Bandwidth')
 saveas(bwFig, [saveDir, 'bandwidthUsage'], 'png');
+
+%Plot the component sizes
+figure(componentFig);
+hold all
+legends = {};
+for ii = 1:numComponents
+    plot(0:simTime, compSizeHist(:, ii));
+    legends{ii} = ['Comp-', num2str(ii)];
+end
+xlabel('Time Period');
+ylabel('Component Size');
+ylim([0, numPlats]);
+title(['Component Sizes: ', runName], 'Fontsize', 15)
+legend(legends, 'Location', 'West');
+saveas(msgFig, [saveDir, 'compSizes'], 'png');
+
+%and grab the last sim plot. just in case gifs don't pan out (would never
+%happen...)
+saveas(simFig, [saveDir, 'simLaydown'], 'png');
 
 %write out loadHistory
 writematrix(loadHistoryABR, [saveDir, 'loadHistoryABR.csv']);
