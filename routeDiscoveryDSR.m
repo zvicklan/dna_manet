@@ -82,7 +82,6 @@ while numel(paths) > 0
                 error('%s: pathMemArr{%d,%d} did not arrive to dest\n', mfilename, ...
                     thisNode, dest);
             end
-            hasTXed(thisNode) = 1; %mark to not tx again
             wouldBePath = [myPath(:); memPath(2:end)];
             memLen = numel(memPath(2:end));
             %Check if we want to use this one
@@ -97,6 +96,7 @@ while numel(paths) > 0
                 disp(wouldBePath.')
                 %check that there are no loops in here
                 if numel(wouldBePath) == numel(unique(wouldBePath))
+                    hasTXed(thisNode) = 1; %mark to not tx again
                     bestPath = wouldBePath;
                     pathUsesMem = 0;
                     numMemSteps = memLen;

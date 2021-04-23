@@ -473,6 +473,7 @@ aLeg = plot(0:simTime, mean(msgSuccessABR, 2), 'b');
 bLeg = plot(0:simTime, mean(msgSuccessDSR > 0, 2), 'g'); %b/c it also counts the try
 xlabel('Time Period');
 ylabel('Msg Success Rate');
+ylim([0, 1]);
 title(['Msg Success Rate: ', runName])
 legend([aLeg, bLeg, cLeg], {'ABR Msg Success', 'DSR Msg Success', '100%'})
 saveas(msgFig, [saveDir, 'msgSuccess'], 'png');
@@ -481,11 +482,10 @@ figure(bwFig);
 hold all
 plot(0:simTime, sum(totalBWABR, 2)/1000, 'b')
 plot(0:simTime, sum(totalBWDSR, 2)/1000, 'g')
-plot([0, simTime], [1, 1], 'k')
 xlabel('Time Period');
 ylabel('Bandwidth Utilization (KB)');
 title(['Bandwidth Utilization: ', runName])
-legend('ABR Bandwidth', 'DSR Bandwidth', '100%')
+legend('ABR Bandwidth', 'DSR Bandwidth')
 saveas(bwFig, [saveDir, 'bandwidthUsage'], 'png');
 
 %write out loadHistory
