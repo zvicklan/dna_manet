@@ -144,6 +144,7 @@ debugFigDSR = 3;
 msgFig = 4;
 bwFig = 5;
 componentFig = 6;
+memUsageFig = 7;
 
 legendHandle = 0;
 for tt = 0:simTime
@@ -352,7 +353,7 @@ for tt = 0:simTime
             end
             
             % Delete routes that we don't want to keep for long term
-            if mm > numConvos
+            if mm > numConvos && ~(numEnemies && tt >= enemyTime) %don't delete enemy routes
                 %Just check it isn't also a convo first
                 if ~any(ismember(convoMsgPairs, [src, dest], 'rows')) && ...
                         ~any(ismember(convoMsgPairs, [dest, src], 'rows'))
@@ -497,6 +498,19 @@ title(['Bandwidth Utilization: ', runName], 'Fontsize', 15)
 legend('ABR Bandwidth', 'DSR Bandwidth')
 saveas(bwFig, [saveDir, 'bandwidthUsage'], 'png');
 
+%Plot out the memory usage success rate and totalBW
+figure(memUsageFig);
+hold all
+cLeg = plot([0, simTime], [1, 1], 'k:');
+aLeg = plot(0:simTime, mean(memSuccessABR, 2), 'b');
+bLeg = plot(0:simTime, mean(memSuccessDSR > 0, 2), 'g'); %b/c it also counts the try
+xlabel('Time Period');
+ylabel('Memory Success Rate');
+ylim([0, 1]);
+title(['Memory Success Rate: ', runName], 'Fontsize', 15)
+legend([aLeg, bLeg, cLeg], {'ABR Mem Success', 'DSR Mem Success', '100%'})
+saveas(memUsageFig, [saveDir, 'memSuccess'], 'png');
+
 %Plot the component sizes
 figure(componentFig);
 hold all
@@ -510,7 +524,7 @@ ylabel('Component Size');
 ylim([0, numPlats]);
 title(['Component Sizes: ', runName], 'Fontsize', 15)
 legend(legends, 'Location', 'West');
-saveas(msgFig, [saveDir, 'compSizes'], 'png');
+saveas(componentFig, [saveDir, 'compSizes'], 'png');
 
 %and grab the last sim plot. just in case gifs don't pan out (would never
 %happen...)
