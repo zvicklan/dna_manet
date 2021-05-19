@@ -204,15 +204,15 @@ for tt = 0:simTime
     linkMatrix3 = zeroRandomFields(linkMatrix3, 1-linkProb3, 1);
     
     linkMatrix = combineLinks(linkMatrix1, 2*linkMatrix2, 3*linkMatrix3);
-    
-    %Make a graph so we can find the shortest path for each
-    thisGraph = graph(linkMatrix>0);
-    
+        
     %Apply the centrality shenanigans
     if numRemoveNodes && tt >= cutoutTime
         linkMask = removeHighCentrality(unmodLinkMatrix, targetedNodes);
         linkMatrix = linkMatrix .* linkMask; %elementwise masking with 1s and 0s
     end
+    
+    %Make a graph so we can find the shortest path for each
+    thisGraph = graph(linkMatrix>0);
     
     %everyone pings
     theseTicks = double(linkMatrix > 0);
@@ -600,6 +600,7 @@ saveas(simFig, [saveDir, 'simLaydown'], 'png');
 %write out loadHistory
 writematrix(loadHistoryABR, [saveDir, 'loadHistoryABR.csv']);
 writematrix(loadHistoryDSR, [saveDir, 'loadHistoryDSR.csv']);
+close all;  
 save([saveDir, 'allVars']);
 fclose(linkFd);
 fclose(abrFd);

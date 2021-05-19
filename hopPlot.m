@@ -15,17 +15,16 @@ boxplot(usedData, refData);
 maxLabel = max(refData);
 meanVec = zeros(maxLabel + 1, 1);
 xVec = 0:maxLabel;
-xVec = xVec + 1;
 
 for ii = 0:max(refData)
-    inds = refData == ii;
+    inds = (refData == ii) & (usedData > 0); %skip ones that didn't work
     theseData = usedData(inds);
     
     meanVec(ii+1) = mean(theseData);
 end
 
 hold all
-plot(xVec, meanVec, 'ko', 'MarkerFacecolor', 'k');
+plot(xVec + 1, meanVec, 'ko', 'MarkerFacecolor', 'k');
 xlabel('Geodesic Path Length')
 ylabel('Used Path Length');
 legend('Mean Path Lengths')

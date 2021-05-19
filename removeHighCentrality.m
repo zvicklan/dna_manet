@@ -14,11 +14,14 @@ function outMatrix = removeHighCentrality(matrix, nodeList)
 % History
 % 4/14/2021 ZV to remove nodes for UAV sim
 % 4/15/2021 broken into helper function... as i should've at first
+% 5/19/2021 added logic to skip 0 indices
 
 %Make the output
 outMatrix = matrix;
 for ii= 1:numel(nodeList)
     thisInd = nodeList(ii);
-    outMatrix(thisInd, :) = 0;
-    outMatrix(:, thisInd) = 0;
+    if thisInd > 0
+        outMatrix(thisInd, :) = 0;
+        outMatrix(:, thisInd) = 0;
+    end
 end
