@@ -43,7 +43,7 @@ totalRx = zeros(numNodes, 1);
 bwMatrix = zeros(numNodes, numNodes);
 
 if ~exist('msgSize', 'var')
-    msgSize = 500;
+    msgSize = 1;
 end
 
 tickThreshold = 10;

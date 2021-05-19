@@ -20,7 +20,7 @@ function [totalTx, totalRx, bwMatrix, abrPathMem] = saveNewPathABR(abrPathMem, n
 % ZV Created 3/9/2021 - from saveNewPath
 
 if ~exist('msgSize', 'var')
-    msgSize = 500;
+    msgSize = 1;
 end
 
 %Initialize output

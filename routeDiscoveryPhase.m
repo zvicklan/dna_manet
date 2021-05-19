@@ -42,7 +42,7 @@ function [bestPath, totalTx, totalRx, bwMatrix] = routeDiscoveryPhase(src, dest,
 % Modified 3/8/2021 ZV to do route selection and allow msgSize input
 
 if ~exist('msgSize', 'var')
-    msgSize = 500;
+    msgSize = 1;
 end
 if ~exist('tickMatrix', 'var')
     tickMatrix = zeros(size(linkMatrix));

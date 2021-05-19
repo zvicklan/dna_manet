@@ -40,7 +40,7 @@ function [totalTx, totalRx, bwMatrix, abrPathMem] = routeDeletionPhase(src, dest
 % Modified 3/8/2021 ZV to do route selection and allow msgSize input
 
 if ~exist('msgSize', 'var')
-    msgSize = 500;
+    msgSize = 1;
 end
 fullBroadcastFlag = 1; %make getGoodPaths go everywhere!
 [~, totalTx, totalRx, bwMatrix] = getGoodPaths(src, dest, ...
